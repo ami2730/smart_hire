@@ -223,7 +223,13 @@ class CandidateRepository {
 
   // ── Update ─────────────────────────────────────────────────────────────────
 
- 
+  async update(id: string, data: UpdateCandidateInput): Promise<CandidateWithRelations> {
+    await prisma.candidate.update({ where: { id }, data });
+    return prisma.candidate.findUniqueOrThrow({
+      where: { id },
+      include: candidateWithRelations,
+    });
+  }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
 
