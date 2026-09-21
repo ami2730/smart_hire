@@ -137,7 +137,29 @@ class CandidateService {
 
   // ── Update ─────────────────────────────────────────────────────────────────
 
-  
+  async updateCandidate(
+    id: string,
+    data: UpdateCandidateInput
+  ): Promise<ReturnType<typeof formatCandidate>> {
+    // Verify exists
+    const existing = await candidateRepository.findById(id);
+    if (!existing) {
+      throw new NotFoundError('Candidate not found');
+    }
+
+    // Guard email uniqueness if changing
+    if (data.email && data.email !== existing.email) {
+      const emailConflict = await candidateRepository.findByEmail(data.email);
+      if (emailConflict) {
+        throw new ConflictError(
+          `A candidate with email '${data.email}' already exists`
+        );
+      }
+    }
+
+    const updated = await candidateRepository.update(id, data);
+    return formatCandidate(updated);
+  }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
 
