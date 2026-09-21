@@ -50,7 +50,13 @@ export const createCandidateSchema = z.object({
     .default([]),
 });
 
-
+export const updateCandidateSchema = z.object({
+  name: z.string().trim().min(2).max(150).optional(),
+  email: z.string().trim().email('Invalid email address').toLowerCase().optional(),
+  phone: z.string().trim().max(30).optional(),
+  location: z.string().trim().max(200).optional(),
+  summary: z.string().trim().max(2000).optional(),
+});
 
 export const candidateQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
