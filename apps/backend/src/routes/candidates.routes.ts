@@ -92,6 +92,21 @@ router.delete(
   candidatesController.removeEducation
 );
 
+// ── Experience ────────────────────────────────────────────────────────────────
 
+// POST /api/v1/candidates/:id/experience
+router.post(
+  '/:id/experience',
+  validateParams(candidateIdParamSchema),
+  validateBody(addExperienceSchema),
+  candidatesController.addExperience
+);
+
+// DELETE /api/v1/candidates/:id/experience/:experienceId
+router.delete(
+  '/:id/experience/:experienceId',
+  validateParams(candidateAndSubIdSchema),
+  candidatesController.removeExperience
+);
 
 export const candidatesRoutes = router;
