@@ -75,6 +75,23 @@ router.delete(
   candidatesController.removeSkill
 );
 
+// ── Education ─────────────────────────────────────────────────────────────────
+
+// POST /api/v1/candidates/:id/education
+router.post(
+  '/:id/education',
+  validateParams(candidateIdParamSchema),
+  validateBody(addEducationSchema),
+  candidatesController.addEducation
+);
+
+// DELETE /api/v1/candidates/:id/education/:educationId
+router.delete(
+  '/:id/education/:educationId',
+  validateParams(candidateAndSubIdSchema),
+  candidatesController.removeEducation
+);
+
 
 
 export const candidatesRoutes = router;
