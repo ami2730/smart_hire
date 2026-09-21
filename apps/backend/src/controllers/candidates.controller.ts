@@ -55,7 +55,15 @@ class CandidatesController {
     }
   };
 
-
+  update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const input = req.body as UpdateCandidateInput;
+      const candidate = await candidateService.updateCandidate(req.params['id']!, input);
+      sendSuccess(res, { candidate });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
