@@ -127,6 +127,25 @@ async uploadResume(
       mimeType: resume.mimeType,
     };
   }
+  async deleteResume(id: string): Promise<void> {
+    const resume = await resumeRepository.findById(id);
+    if (!resume) throw new NotFoundError('Resume not found');
+
+    // Delete DB record first — if file deletion fails that's acceptable
+    await resumeRepository.delete(id);
+
+    const filePath = path.isAbsolute(resume.storedFileName)
+      ? resume.storedFileName
+      : path.join(UPLOAD_DIR, resume.storedFileName);
+
+    this.safeDeleteFile(filePath);
+
+    logger.info(
+      { resumeId: id, fileName: resume.originalFileName },
+      'Resume deleted'
+    );
+  }
+
 }
 
 
