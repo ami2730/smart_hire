@@ -87,6 +87,12 @@ export class RankingService {
         message: 'No pending applications found to evaluate. All candidates already screened.',
       };
     }
+     // Prepare job specifications for ML service
+    const jobReqs = job.requirements;
+    const requiredSkills = jobReqs?.requiredSkills || [];
+    const minYears = job.minimumExperienceYears || jobReqs?.minimumExperienceYears || 0;
+    const educationReqs = jobReqs?.educationRequirements ? [jobReqs.educationRequirements] : [];
+
 }
 
 export const rankingService = new RankingService();
