@@ -183,6 +183,28 @@ await auditService.log({
         data: { isDefault: false },
       });
     }
+     let extractedText: string | null = null;
+    let processingStatus: ResumeProcessingStatus = ResumeProcessingStatus.UPLOADED;
+
+    try {
+      const fileBuffer = file.buffer || (fs.existsSync(file.path) ? fs.readFileSync(file.path) : null);
+      if (fileBuffer) {
+        const extraction = await mlClient.extractResume(
+          fileBuffer,
+          file.originalname,
+          file.mimetype
+        );
+        if (extraction && extraction.text) {
+          extractedText = extraction.text;
+          processingStatus = ResumeProcessingStatus.PROCESSED;
+        }
+      }
+    } catch (extractErr) {
+      logger.warn(
+        { err: extractErr, fileName: file.originalname },
+        'ML text extraction deferred or failed during applicant resume upload'
+      );
+    }
 }
 
 export const applicantService = new ApplicantService();
