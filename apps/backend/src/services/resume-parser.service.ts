@@ -452,6 +452,20 @@ onst nextLine = expLines[i + 1] ?? '';
     if (!candidate) {
       throw new Error(`Candidate with id ${candidateId} not found`);
     }
+// 1. Run local deterministic parser on raw text
+    const localData = this.parseText(extractedText);
 
+    // 2. Query ML service for deeper analysis if available
+    let mlData: any = null;
+    if (fileBuffer && fileName) {
+      try {
+        const mlRes = await mlClient.analyzeResume(fileBuffer, fileName);
+        if (mlRes && mlRes.candidate_profile) {
+          mlData = mlRes.candidate_profile;
+        }
+      } catch (err) {
+        logger.info({ err }, 'ML analyze endpoint deferred, relying on local NLP extraction');
+      }
+    }
 
 export const resumeParserService = new ResumeParserService();
