@@ -29,4 +29,7 @@ const idParamSchema = z.object({
   id: z.string().uuid('Invalid ID format'),
 });
 
+// Profile endpoints
+router.get('/profile', applicantController.getProfile);
+
 export const applicantRoutes = router;
