@@ -11,3 +11,23 @@ export const getHealth = (_req: Request, res: Response): Response => {
     timestamp: new Date().toISOString(),
   });
 };
+
+export const getReadiness = async (_req: Request, res: Response): Promise<Response> => {
+  try {
+    // Check PostgreSQL connection with low-overhead query
+    await prisma.$queryRaw`SELECT 1`;
+
+    return sendSuccess(res, {
+      status: 'ready',
+      service: 'smarthire-backend',
+      version: '1.0.0',
+      checks: {
+        server: 'ok',
+        database: 'ok',
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    
+  }
+};
