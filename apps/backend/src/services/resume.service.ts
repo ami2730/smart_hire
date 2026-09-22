@@ -61,6 +61,16 @@ async uploadResume(
       this.safeDeleteFile(file.path);
       throw new NotFoundError('Candidate not found');
     }
+     const metadata = buildFileMetadata(file);
+    const resume = await resumeRepository.create({ candidateId, ...metadata });
+
+    logger.info(
+      { resumeId: resume.id, candidateId, fileName: file.originalname },
+      'Resume uploaded successfully'
+    );
+
+    return formatResume(resume);
+  }
 }
 
 
