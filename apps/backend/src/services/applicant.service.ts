@@ -426,6 +426,54 @@ if (!text) {
       orderBy: { appliedAt: 'desc' },
     });
   }
+/**
+   * Get single application details for the authenticated applicant.
+   */
+  async getApplicationById(userId: string, applicationId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            responsibilities: true,
+            location: true,
+            employmentType: true,
+            experienceRequirement: true,
+            educationRequirement: true,
+            status: true,
+            publishedAt: true,
+            requirements: true,
+          },
+        },
+        resume: {
+          select: {
+            id: true,
+            originalFileName: true,
+            uploadedAt: true,
+          },
+        },
+        screeningResults: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!application) {
+      throw new NotFoundError('Application not found');
+    }
+
+    if (application.candidateId !== candidate.id) {
+      throw new AuthorizationError('Forbidden: you do not have permission to view this application');
+    }
+
+    return application;
+  }
 
 }
 
