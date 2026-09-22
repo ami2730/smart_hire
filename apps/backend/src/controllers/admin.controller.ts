@@ -33,3 +33,12 @@ export class AdminController {
       next(error);
     }
   };
+
+  getRecruiters = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await adminService.listRecruiters(req.query as any);
+      sendSuccess(res, result, 200);
+    } catch (error) {
+      next(error);
+    }
+  };
