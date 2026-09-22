@@ -130,5 +130,70 @@ export interface ExtractedResumeData {
   phone?: string;
   summary?: string;
 }
+export class ResumeParserService {
+  /**
+   * Parse resume raw text and optional ML service payload into structured candidate entities.
+   */
+  parseText(rawText: string): ExtractedResumeData {
+    if (!rawText || !rawText.trim()) {
+      return { skills: [], experience: [], education: [] };
+    }
+
+    const lines = rawText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    // 1. Identify sections
+    const sections: Record<string, string[]> = {
+      header: [],
+      summary: [],
+      experience: [],
+      education: [],
+      skills: [],
+      projects: [],
+      other: [],
+    };
+
+    let currentSection = 'header';
+
+    for (const line of lines) {
+      const lower = line.toLowerCase().replace(/[:\-_#*]/g, '').trim();
+
+      if (
+        /^(work\s+experience|professional\s+experience|experience|employment(?:\s+history)?|work\s+history)$/i.test(
+          lower
+        )
+      ) {
+        currentSection = 'experience';
+        continue;
+      }
+      if (
+        /^(education|educational\s+background|academic\s+background|qualifications|academic\s+history|degrees?|education\s*&.*|education\s+and.*|academic\s+qualifications)/i.test(
+          lower
+        )
+      ) {
+        currentSection = 'education';
+        continue;
+      }
+      if (
+        /^(skills|technical\s+skills|core\s+competencies|technologies|tools(?:\s+and\s+technologies)?)$/i.test(
+          lower
+        )
+      ) {
+        currentSection = 'skills';
+        continue;
+      }
+      if (/^(summary|professional\s+summary|profile|about(?:\s+me)?|objective)$/i.test(lower)) {
+        currentSection = 'summary';
+        continue;
+      }
+      if (/^(projects|personal\s+projects|portfolio)$/i.test(lower)) {
+        currentSection = 'projects';
+        continue;
+      }
+
+      (sections[currentSection] ?? (sections[currentSection] = [])).push(line);
+    }
 
 export const resumeParserService = new ResumeParserService();
