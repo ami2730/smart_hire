@@ -293,5 +293,14 @@ onst nextLine = expLines[i + 1] ?? '';
           }
         }
       }
+        if (currentJob && currentJob.jobTitle) {
+        experience.push({
+          jobTitle: currentJob.jobTitle,
+          company: currentJob.company || 'Organization',
+          description: currentJob.description.join(' ').trim() || undefined,
+          years: this.estimateYears(currentJob.dates),
+        });
+      }
+    }
 
 export const resumeParserService = new ResumeParserService();
