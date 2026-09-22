@@ -41,5 +41,5 @@ router.delete('/resumes/:id', validateParams(idParamSchema), applicantController
 // Applications endpoints
 router.post('/applications', validateBody(applyJobSchema), applicantController.apply);
 router.get('/applications', applicantController.getApplications);
-
+router.get('/applications/:id', validateParams(idParamSchema), applicantController.getApplicationById);
 export const applicantRoutes = router;
