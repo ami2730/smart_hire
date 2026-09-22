@@ -53,6 +53,24 @@ export class ApplicantService {
             ],
           },
         });
+         if (existing) {
+          candidate = await prisma.candidate.update({
+            where: { id: existing.id },
+            data: { userId: user.id, name: user.name },
+            include: {
+              skills: { include: { skill: true } },
+              education: true,
+              experience: true,
+              resumes: { orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }] },
+              applications: {
+                orderBy: { appliedAt: 'desc' },
+                include: {
+                  job: { select: { id: true, title: true, status: true } },
+                  screeningResults: { orderBy: { createdAt: 'desc' }, take: 1 },
+                },
+              },
+            },
+          });
 }
 
 export const applicantService = new ApplicantService();
