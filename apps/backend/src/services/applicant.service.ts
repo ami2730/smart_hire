@@ -71,6 +71,13 @@ export class ApplicantService {
               },
             },
           });
+          } else {
+          candidate = await prisma.candidate.create({
+            data: {
+              userId: user.id,
+              name: user.name,
+              email: user.email,
+            },
 }
 
 export const applicantService = new ApplicantService();
