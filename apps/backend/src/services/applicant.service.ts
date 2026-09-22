@@ -167,7 +167,22 @@ await auditService.log({
       buffer?: Buffer;
     },
     isDefault = false
-  )
+  ){
+    const candidate = await this.getCandidateByUserId(userId);
+
+    const resumeCount = await prisma.resume.count({
+      where: { candidateId: candidate.id },
+    });
+
+    // Make default if requested or if this is the user's first resume
+    const shouldBeDefault = isDefault || resumeCount === 0;
+
+    if (shouldBeDefault) {
+      await prisma.resume.updateMany({
+        where: { candidateId: candidate.id },
+        data: { isDefault: false },
+      });
+    }
 }
 
 export const applicantService = new ApplicantService();
