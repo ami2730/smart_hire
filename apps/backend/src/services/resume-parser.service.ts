@@ -391,5 +391,45 @@ onst nextLine = expLines[i + 1] ?? '';
         }
       }
     }
+     // 6. Summary / Headline
+    let jobTitle: string | undefined;
+    for (const line of lines.slice(0, 8)) {
+      if (/\b(engineer|developer|designer|architect|lead|analyst)\b/i.test(line) && line.length < 50) {
+        jobTitle = line;
+        break;
+      }
+    }
+
+    let summary: string | undefined;
+    if ((sections.summary ?? []).length > 0) {
+      summary = (sections.summary ?? []).join(' ').trim();
+    } else if (experience[0]?.description) {
+      summary = experience[0].description.slice(0, 400);
+    }
+
+    return {
+      skills: Array.from(extractedSkillsSet),
+      jobTitle,
+      experience,
+      education,
+      location,
+      phone,
+      summary,
+    };
+  }
+
+  private estimateYears(dateStr?: string): number {
+    if (!dateStr) return 1.0;
+    const years = dateStr.match(/\b(19\d\d|20\d\d)\b/g);
+    if (years && years.length >= 2) {
+      const diff = parseInt(years[1] ?? '0', 10) - parseInt(years[0] ?? '0', 10);
+      return diff > 0 ? diff : 0.5;
+    }
+    if (/\b(month|june|augst|august|july)\b/i.test(dateStr)) {
+      return 0.5;
+    }
+    return 1.0;
+  }
+
 
 export const resumeParserService = new ResumeParserService();
