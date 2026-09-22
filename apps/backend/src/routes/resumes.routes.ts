@@ -22,4 +22,13 @@ router.post(
   resumesController.upload
 );
 
+// GET /api/v1/candidates/:candidateId/resumes — list candidate resumes
+router.get(
+  '/candidates/:candidateId/resumes',
+  requireAuth,
+  validateParams(candidateIdParamSchema),
+  validateQuery(resumeQuerySchema),
+  resumesController.list
+);
+
 export const resumesRoutes = router;
