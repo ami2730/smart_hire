@@ -257,7 +257,13 @@ class NotificationService {
     }
     return { markedCount: notifications.length };
   }
-
+/**
+   * Mark a single notification as read.
+   */
+  async markAsRead(user: AuthUser, notificationId: string): Promise<void> {
+    const readSet = this.getReadSet(user.id);
+    readSet.add(notificationId);
+  }
     }
 
 export const notificationService = new NotificationService();
