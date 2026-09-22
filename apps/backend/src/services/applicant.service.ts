@@ -153,6 +153,21 @@ await auditService.log({
       orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }],
     });
   }
+  /**
+   * Upload a new resume for the applicant.
+   */
+  async uploadResume(
+    userId: string,
+    file: {
+      originalname: string;
+      filename: string;
+      path: string;
+      mimetype: string;
+      size: number;
+      buffer?: Buffer;
+    },
+    isDefault = false
+  )
 }
 
 export const applicantService = new ApplicantService();
