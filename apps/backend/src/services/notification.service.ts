@@ -128,6 +128,20 @@ class NotificationService {
               take: 10,
             });
 
+            for (const app of appsToUse) {
+        const notifId = `rec-app-${app.id}`;
+        notifications.push({
+          id: notifId,
+          title: 'New Candidate Application',
+          message: `${app.candidate.name} applied for "${app.job.title}".`,
+          type: 'INFO',
+          category: 'APPLICATION',
+          timestamp: app.appliedAt.toISOString(),
+          read: readSet.has(notifId),
+          link: `/applications/${app.id}`,
+        });
+      }
+
     }
 
 export const notificationService = new NotificationService();
