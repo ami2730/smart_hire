@@ -246,7 +246,17 @@ class NotificationService {
       unreadCount,
     };
   }
-
+/**
+   * Mark all notifications as read for the user.
+   */
+  async markAllAsRead(user: AuthUser): Promise<{ markedCount: number }> {
+    const { notifications } = await this.getNotifications(user);
+    const readSet = this.getReadSet(user.id);
+    for (const notif of notifications) {
+      readSet.add(notif.id);
+    }
+    return { markedCount: notifications.length };
+  }
 
     }
 
