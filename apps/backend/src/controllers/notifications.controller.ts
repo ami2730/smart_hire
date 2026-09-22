@@ -9,7 +9,8 @@ export class NotificationsController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      
+      const data = await notificationService.getNotifications(req.user!);
+      sendSuccess(res, data, 200);
     } catch (error) {
       next(error);
     }
