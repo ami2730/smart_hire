@@ -38,5 +38,6 @@ router.get('/resumes', applicantController.getResumes);
 router.post('/resumes', resumeUpload.single('resume'),
 router.delete('/resumes/:id', validateParams(idParamSchema), applicantController.deleteResume);
 
+// Applications endpoints
 
 export const applicantRoutes = router;
