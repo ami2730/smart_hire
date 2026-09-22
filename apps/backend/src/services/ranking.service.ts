@@ -99,7 +99,26 @@ export class RankingService {
     for (const app of eligibleApps) {
       const fullApp = await applicationRepository.findById(app.id);
       if (!fullApp) continue;
+ appMap.set(fullApp.candidateId, fullApp.id);
 
+      // Resolve resume text
+      let resumeText = fullApp.resume?.extractedText || '';
+      if (!resumeText && fullApp.resume?.filePath && fs.existsSync(fullApp.resume.filePath)) {
+        try {
+          const fileBuffer = fs.readFileSync(fullApp.resume.filePath);
+          const extraction = await mlService.extractResume(
+            fileBuffer,
+            fullApp.resume.originalFileName,
+            fullApp.resume.mimeType
+          );
+          if (extraction.text) {
+            resumeText = extraction.text;
+            await resumeRepository.updateExtractedText(fullApp.resume.id, resumeText);
+          }
+        } catch (err) {
+          logger.warn({ resumeId: fullApp.resume.id, err }, 'Failed to extract resume text');
+        }
+      }
 }
 
 export const rankingService = new RankingService();
