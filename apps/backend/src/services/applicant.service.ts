@@ -377,7 +377,14 @@ if (!text) {
       const defaultResume = (candidate.resumes || []).find((r: any) => r.isDefault) || candidate.resumes?.[0];
       effectiveResumeId = defaultResume ? defaultResume.id : undefined;
     }
-
+ return applicationService.createApplication({
+      candidateId: candidate.id,
+      jobId: data.jobId,
+      resumeId: effectiveResumeId,
+      coverLetter: data.coverLetter,
+      source: 'REGISTERED',
+    });
+  }
 }
 
 export const applicantService = new ApplicantService();
