@@ -61,7 +61,15 @@ export class RankingService {
       sortBy: 'appliedAt',
       sortOrder: 'desc',
     });
-
+ // Filter applications eligible for ranking
+    let eligibleApps = applications;
+    if (candidateIds && candidateIds.length > 0) {
+      eligibleApps = eligibleApps.filter((a) => candidateIds.includes(a.candidate.id));
+    }
+    if (!force) {
+      // Only process applications not already screened
+      eligibleApps = eligibleApps.filter((a) => a.status !== ApplicationStatus.SCREENED);
+    }
 }
 
 export const rankingService = new RankingService();
