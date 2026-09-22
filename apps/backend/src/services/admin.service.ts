@@ -63,6 +63,45 @@ export class AdminService {
   /**
    * Activate or deactivate a user account.
    */
- 
+  async updateUserStatus(userId: string, isActive: boolean, adminId: string) {
+    if (userId === adminId && !isActive) {
+      throw new ValidationError('Admin cannot deactivate their own account');
+    }
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { isActive },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
+
+    await auditService.log({
+      action: isActive ? 'USER_ACTIVATE' : 'USER_DEACTIVATE',
+      resource: 'USER',
+      resourceId: userId,
+      userId: adminId,
+      details: { previousState: user.isActive, newState: isActive },
+    });
+
+    return updated;
+  }
+
+  /**
+   * List all applicants across the platform.
+   */
+  
 export const adminService = new AdminService();
