@@ -242,6 +242,19 @@ await auditService.log({
 
     return resume;
   }
+   /**
+   * Explicitly parse/sync candidate profile from a resume.
+   */
+  async syncResumeToProfile(userId: string, resumeId?: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+    const targetResume = resumeId
+      ? candidate.resumes.find((r) => r.id === resumeId)
+      : candidate.resumes.find((r) => r.isDefault) || candidate.resumes[0];
+
+    if (!targetResume) {
+      throw new NotFoundError('No resume found to extract profile data from');
+    }
+
 }
 
 export const applicantService = new ApplicantService();
