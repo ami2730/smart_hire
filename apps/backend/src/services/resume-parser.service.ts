@@ -130,6 +130,7 @@ export interface ExtractedResumeData {
   phone?: string;
   summary?: string;
 }
+
 export class ResumeParserService {
   /**
    * Parse resume raw text and optional ML service payload into structured candidate entities.
@@ -195,9 +196,11 @@ export class ResumeParserService {
 
       (sections[currentSection] ?? (sections[currentSection] = [])).push(line);
     }
-// 2. Extract Skills
+
+    // 2. Extract Skills
     const extractedSkillsSet = new Set<string>();
- // Scan lines in the SKILLS section
+
+    // Scan lines in the SKILLS section
     for (const line of (sections.skills ?? [])) {
       // Split on commas, bullets, pipes, or semicolons
       const tokens = line.split(/[,|;•\t]/).map((t) => t.trim());
@@ -223,6 +226,7 @@ export class ResumeParserService {
         }
       }
     }
+
     // Also scan the entire resume text for all canonical skills to catch mentions elsewhere
     const fullTextLower = ` ${rawText.toLowerCase().replace(/[,/()]/g, ' ')} `;
     for (const [key, canonical] of Object.entries(CANONICAL_SKILLS)) {
@@ -231,7 +235,8 @@ export class ResumeParserService {
         extractedSkillsSet.add(canonical);
       }
     }
-     // 3. Extract Experience
+
+    // 3. Extract Experience
     const experience: ExtractedResumeData['experience'] = [];
     const expLines = sections.experience ?? [];
 
@@ -242,7 +247,8 @@ export class ResumeParserService {
         dates?: string;
         description: string[];
       } | null = null;
- for (let i = 0; i < expLines.length; i++) {
+
+      for (let i = 0; i < expLines.length; i++) {
         const line = expLines[i] ?? '';
 
         // Check if line looks like a job title or company
@@ -259,7 +265,8 @@ export class ResumeParserService {
           /\b(engineer|developer|designer|manager|architect|lead|intern|consultant|analyst|specialist|administrator)\b/i.test(
             line
           );
-if (isJobTitleCandidate && (!currentJob || currentJob.description.length > 0)) {
+
+        if (isJobTitleCandidate && (!currentJob || currentJob.description.length > 0)) {
           if (currentJob && currentJob.jobTitle) {
             experience.push({
               jobTitle: currentJob.jobTitle,
@@ -268,7 +275,8 @@ if (isJobTitleCandidate && (!currentJob || currentJob.description.length > 0)) {
               years: this.estimateYears(currentJob.dates),
             });
           }
-onst nextLine = expLines[i + 1] ?? '';
+
+          const nextLine = expLines[i + 1] ?? '';
           const companyGuess =
             nextLine && !isDateLine && !/@/.test(nextLine) && nextLine.length < 50
               ? nextLine
@@ -293,7 +301,8 @@ onst nextLine = expLines[i + 1] ?? '';
           }
         }
       }
-        if (currentJob && currentJob.jobTitle) {
+
+      if (currentJob && currentJob.jobTitle) {
         experience.push({
           jobTitle: currentJob.jobTitle,
           company: currentJob.company || 'Organization',
@@ -302,7 +311,8 @@ onst nextLine = expLines[i + 1] ?? '';
         });
       }
     }
-    / 4. Extract Education
+
+    // 4. Extract Education
     const education: ExtractedResumeData['education'] = [];
     const eduLines =
       sections.education && sections.education.length > 0
@@ -369,7 +379,8 @@ onst nextLine = expLines[i + 1] ?? '';
     if (currentEdu) {
       education.push(currentEdu);
     }
-// 5. Extract Location & Phone
+
+    // 5. Extract Location & Phone
     let location: string | undefined;
     let phone: string | undefined;
 
@@ -391,7 +402,8 @@ onst nextLine = expLines[i + 1] ?? '';
         }
       }
     }
-     // 6. Summary / Headline
+
+    // 6. Summary / Headline
     let jobTitle: string | undefined;
     for (const line of lines.slice(0, 8)) {
       if (/\b(engineer|developer|designer|architect|lead|analyst)\b/i.test(line) && line.length < 50) {
@@ -430,7 +442,8 @@ onst nextLine = expLines[i + 1] ?? '';
     }
     return 1.0;
   }
- /**
+
+  /**
    * Complete pipeline: parse resume text + optional ML analysis, and persist
    * skills, experience, and education into the PostgreSQL database for the candidate.
    */
@@ -452,7 +465,8 @@ onst nextLine = expLines[i + 1] ?? '';
     if (!candidate) {
       throw new Error(`Candidate with id ${candidateId} not found`);
     }
-// 1. Run local deterministic parser on raw text
+
+    // 1. Run local deterministic parser on raw text
     const localData = this.parseText(extractedText);
 
     // 2. Query ML service for deeper analysis if available
@@ -467,14 +481,16 @@ onst nextLine = expLines[i + 1] ?? '';
         logger.info({ err }, 'ML analyze endpoint deferred, relying on local NLP extraction');
       }
     }
- // Merge skills
+
+    // Merge skills
     const combinedSkills = new Set<string>(localData.skills);
     if (mlData?.skills && Array.isArray(mlData.skills)) {
       for (const s of mlData.skills) {
         if (s && typeof s === 'string') combinedSkills.add(s.trim());
       }
     }
-// Merge experience
+
+    // Merge experience
     const finalExperience = [...localData.experience];
     if (finalExperience.length === 0 && mlData?.experience && Array.isArray(mlData.experience)) {
       for (const expStr of mlData.experience) {
@@ -486,6 +502,7 @@ onst nextLine = expLines[i + 1] ?? '';
         });
       }
     }
+
     // Merge education
     const finalEducation = [...localData.education];
     if (finalEducation.length === 0 && mlData?.education && Array.isArray(mlData.education)) {
@@ -500,7 +517,8 @@ onst nextLine = expLines[i + 1] ?? '';
     const finalSummary = candidate.summary || localData.summary || mlData?.sections?.summary || null;
     const finalLocation = candidate.location || localData.location || null;
     const finalPhone = candidate.phone || localData.phone || null;
- // 3. Persist in database
+
+    // 3. Persist in database
     await prisma.$transaction(async (tx) => {
       // A. Update Candidate basic info if currently empty
       if ((finalLocation && !candidate.location) || (finalPhone && !candidate.phone) || (finalSummary && !candidate.summary)) {
@@ -513,7 +531,8 @@ onst nextLine = expLines[i + 1] ?? '';
           },
         });
       }
-       // B. Upsert extracted skills
+
+      // B. Upsert extracted skills
       for (const skillName of combinedSkills) {
         if (!skillName || skillName.trim().length < 2) continue;
         const cleanName = skillName.trim();
@@ -531,7 +550,8 @@ onst nextLine = expLines[i + 1] ?? '';
             },
           });
         }
-  // Link to CandidateSkill
+
+        // Link to CandidateSkill
         await tx.candidateSkill.upsert({
           where: {
             candidateId_skillId: {
@@ -548,7 +568,8 @@ onst nextLine = expLines[i + 1] ?? '';
           update: {},
         });
       }
- // C. Insert Experience if candidate currently has 0 experience records
+
+      // C. Insert Experience if candidate currently has 0 experience records
       if (candidate.experience.length === 0 && finalExperience.length > 0) {
         for (const exp of finalExperience) {
           await tx.experience.create({
@@ -562,7 +583,8 @@ onst nextLine = expLines[i + 1] ?? '';
           });
         }
       }
-// D. Insert Education if candidate currently has 0 education records
+
+      // D. Insert Education if candidate currently has 0 education records
       if (candidate.education.length === 0 && finalEducation.length > 0) {
         for (const edu of finalEducation) {
           await tx.education.create({
