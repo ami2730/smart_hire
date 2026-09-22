@@ -205,6 +205,20 @@ await auditService.log({
         'ML text extraction deferred or failed during applicant resume upload'
       );
     }
+    const resume = await prisma.resume.create({
+      data: {
+        candidateId: candidate.id,
+        originalFileName: file.originalname,
+        storedFileName: file.filename,
+        filePath: file.path,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        extractedText,
+        processingStatus,
+        isDefault: shouldBeDefault,
+        processedAt: extractedText ? new Date() : null,
+      },
+    });
 }
 
 export const applicantService = new ApplicantService();
