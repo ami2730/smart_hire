@@ -42,4 +42,5 @@ router.delete('/resumes/:id', validateParams(idParamSchema), applicantController
 router.post('/applications', validateBody(applyJobSchema), applicantController.apply);
 router.get('/applications', applicantController.getApplications);
 router.get('/applications/:id', validateParams(idParamSchema), applicantController.getApplicationById);
+router.post('/applications/:id/withdraw', validateParams(idParamSchema), applicantController.withdrawApplication);
 export const applicantRoutes = router;
