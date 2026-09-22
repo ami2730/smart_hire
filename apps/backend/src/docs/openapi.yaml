@@ -1,0 +1,2234 @@
+openapi: 3.0.3
+
+info:
+  title: SmartHire API
+  description: |
+    AI-assisted candidate screening and resume skill-matching engine.
+
+    ## Authentication
+    Most endpoints require a **Bearer JWT** access token obtained from `POST /api/v1/auth/login`.
+
+    Include the token in all authenticated requests:
+    ```
+    Authorization: Bearer <accessToken>
+    ```
+
+    Access tokens expire after **15 minutes**. Use `POST /api/v1/auth/refresh` with a valid refresh token (7-day TTL) to obtain new tokens.
+
+    ## Rate Limiting
+    | Limiter | Window | Limit |
+    |---|---|---|
+    | Global API | 15 min | 1 000 requests / IP |
+    | Auth endpoints | 15 min | 20 requests / IP |
+    | ML / screening | 5 min | 30 requests / IP |
+
+    ## Response Format
+    All responses follow a consistent envelope:
+
+    **Success:**
+    ```json
+    { "success": true, "data": { ... }, "pagination": { ... } }
+    ```
+    **Error:**
+    ```json
+    { "success": false, "error": { "code": "ERROR_CODE", "message": "...", "details": [...] } }
+    ```
+  version: 1.0.0
+  contact:
+    name: SmartHire Team
+
+servers:
+  - url: http://localhost:4000
+    description: Local development server
+  - url: http://localhost:4000/api/v1
+    description: API v1 base (use this for Try-it-out)
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes
+  - name: Auth
+    description: Registration, login, token refresh, and current user
+  - name: Jobs
+    description: Job posting lifecycle management
+  - name: Candidates
+    description: Candidate profiles, skills, education, and experience
+  - name: Resumes
+    description: Resume file uploads and management
+  - name: Applications
+    description: Job application submission and AI screening
+  - name: Ranking
+    description: Batch AI candidate ranking leaderboard
+  - name: Reports
+    description: Dashboard analytics and pipeline reports
+  - name: Audit Logs
+    description: Security audit trail (Admin only)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Security
+# ─────────────────────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from POST /api/v1/auth/login
+
+  # ─── Reusable Schemas ───────────────────────────────────────────────────────
+  schemas:
+
+    # ── Pagination ─────────────────────────────────────────────────────────────
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 5
+
+    # ── Error ──────────────────────────────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request payload
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+                  code:
+                    type: string
+
+    # ── Auth ───────────────────────────────────────────────────────────────────
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        password:
+          type: string
+          minLength: 8
+          example: "Str0ngPass!"
+        role:
+          type: string
+          enum: [RECRUITER, ADMIN]
+          default: RECRUITER
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        password:
+          type: string
+          example: "Str0ngPass!"
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [RECRUITER, ADMIN]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Short-lived JWT (15 min)
+        refreshToken:
+          type: string
+          description: Long-lived JWT (7 days)
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserResponse'
+            tokens:
+              $ref: '#/components/schemas/AuthTokens'
+
+    # ── Jobs ───────────────────────────────────────────────────────────────────
+    CreateJobRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+          example: Senior Backend Engineer
+        description:
+          type: string
+          minLength: 10
+          example: We are looking for an experienced backend engineer...
+        minimumExperienceYears:
+          type: number
+          minimum: 0
+          default: 0
+          example: 3
+        requiredSkills:
+          type: array
+          items:
+            type: string
+          example: [TypeScript, Node.js, PostgreSQL]
+        educationRequirements:
+          type: string
+          example: Bachelor's degree in Computer Science or equivalent
+
+    UpdateJobRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+        description:
+          type: string
+          minLength: 10
+        minimumExperienceYears:
+          type: number
+          minimum: 0
+        requiredSkills:
+          type: array
+          items:
+            type: string
+        educationRequirements:
+          type: string
+
+    JobResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        recruiterId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, CLOSED]
+        minimumExperienceYears:
+          type: number
+        requirements:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            requiredSkills:
+              type: array
+              items:
+                type: string
+            educationRequirements:
+              type: string
+              nullable: true
+            minimumExperienceYears:
+              type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ── Candidates ─────────────────────────────────────────────────────────────
+    CreateCandidateRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: John Smith
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        phone:
+          type: string
+          example: "+1-555-0100"
+        location:
+          type: string
+          example: San Francisco, CA
+        summary:
+          type: string
+          example: Experienced full-stack developer with 5+ years...
+
+    UpdateCandidateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        location:
+          type: string
+        summary:
+          type: string
+
+    AddSkillRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Python
+        yearsOfExperience:
+          type: number
+          minimum: 0
+          example: 3
+        proficiencyLevel:
+          type: string
+          example: Advanced
+
+    AddEducationRequest:
+      type: object
+      required: [institution, degree]
+      properties:
+        institution:
+          type: string
+          example: MIT
+        degree:
+          type: string
+          example: Bachelor of Science
+        field:
+          type: string
+          example: Computer Science
+        startDate:
+          type: string
+          format: date
+          example: "2016-09-01"
+        endDate:
+          type: string
+          format: date
+          example: "2020-06-01"
+
+    AddExperienceRequest:
+      type: object
+      required: [company, jobTitle]
+      properties:
+        company:
+          type: string
+          example: Acme Corp
+        jobTitle:
+          type: string
+          example: Software Engineer
+        description:
+          type: string
+          example: Built and maintained backend microservices...
+        startDate:
+          type: string
+          format: date
+          example: "2020-07-01"
+        endDate:
+          type: string
+          format: date
+          example: "2023-01-01"
+        years:
+          type: number
+          example: 2.5
+
+    CandidateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        summary:
+          type: string
+          nullable: true
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              skill:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  category:
+                    type: string
+                    nullable: true
+              yearsOfExperience:
+                type: number
+                nullable: true
+              proficiencyLevel:
+                type: string
+                nullable: true
+        education:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              institution:
+                type: string
+              degree:
+                type: string
+              field:
+                type: string
+                nullable: true
+              startDate:
+                type: string
+                format: date-time
+                nullable: true
+              endDate:
+                type: string
+                format: date-time
+                nullable: true
+        experience:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              company:
+                type: string
+              jobTitle:
+                type: string
+              description:
+                type: string
+                nullable: true
+              years:
+                type: number
+                nullable: true
+              startDate:
+                type: string
+                format: date-time
+                nullable: true
+              endDate:
+                type: string
+                format: date-time
+                nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ── Resumes ────────────────────────────────────────────────────────────────
+    ResumeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        candidateId:
+          type: string
+          format: uuid
+        originalFileName:
+          type: string
+          example: john_smith_cv.pdf
+        mimeType:
+          type: string
+          example: application/pdf
+        fileSize:
+          type: integer
+          example: 204800
+        processingStatus:
+          type: string
+          enum: [UPLOADED, PROCESSING, PROCESSED, FAILED]
+        uploadedAt:
+          type: string
+          format: date-time
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+        candidate:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            email:
+              type: string
+
+    # ── Applications ───────────────────────────────────────────────────────────
+    CreateApplicationRequest:
+      type: object
+      required: [candidateId, jobId]
+      properties:
+        candidateId:
+          type: string
+          format: uuid
+        jobId:
+          type: string
+          format: uuid
+        resumeId:
+          type: string
+          format: uuid
+          description: If omitted, defaults to the candidate's most recent resume
+
+    UpdateApplicationStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [APPLIED, PROCESSING, SCREENED, SHORTLISTED, REVIEWED, REJECTED, HIRED]
+
+    ScreeningResultResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        overallScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.82
+        skillMatchScore:
+          type: number
+          format: float
+          example: 0.9
+        experienceMatchScore:
+          type: number
+          format: float
+          example: 0.75
+        educationMatchScore:
+          type: number
+          format: float
+          example: 0.8
+        semanticSimilarityScore:
+          type: number
+          format: float
+          example: 0.78
+        matchingSkills:
+          type: array
+          items:
+            type: string
+          example: [Python, Django, PostgreSQL]
+        missingSkills:
+          type: array
+          items:
+            type: string
+          example: [Kubernetes]
+        recommendation:
+          type: string
+          enum: [STRONG_MATCH, GOOD_MATCH, MODERATE_MATCH, LOW_MATCH]
+        explanation:
+          type: string
+          description: JSON-stringified explanation from the ML model
+        modelVersion:
+          type: string
+          example: "1.0.0"
+        createdAt:
+          type: string
+          format: date-time
+
+    ApplicationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        candidateId:
+          type: string
+          format: uuid
+        jobId:
+          type: string
+          format: uuid
+        resumeId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [APPLIED, PROCESSING, SCREENED, SHORTLISTED, REVIEWED, REJECTED, HIRED]
+        appliedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        candidate:
+          $ref: '#/components/schemas/CandidateResponse'
+        job:
+          $ref: '#/components/schemas/JobResponse'
+        screeningResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScreeningResultResponse'
+
+    # ── Ranking ────────────────────────────────────────────────────────────────
+    RankingEntryResponse:
+      type: object
+      properties:
+        candidateId:
+          type: string
+          format: uuid
+        candidateName:
+          type: string
+        applicationId:
+          type: string
+          format: uuid
+        overallScore:
+          type: number
+          example: 0.87
+        recommendation:
+          type: string
+          enum: [STRONG_MATCH, GOOD_MATCH, MODERATE_MATCH, LOW_MATCH]
+        rank:
+          type: integer
+          example: 1
+
+    BatchRankRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          default: false
+          description: Re-evaluate already-screened candidates
+        candidateIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Limit ranking to specific candidates (omit for all)
+
+    # ── Reports ────────────────────────────────────────────────────────────────
+    OverviewReport:
+      type: object
+      properties:
+        totalJobs:
+          type: integer
+        publishedJobs:
+          type: integer
+        totalCandidates:
+          type: integer
+        totalApplications:
+          type: integer
+        totalScreened:
+          type: integer
+        totalHired:
+          type: integer
+
+    # ── Audit ──────────────────────────────────────────────────────────────────
+    AuditLogResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+          example: USER_LOGIN
+        resource:
+          type: string
+          example: USER
+        resourceId:
+          type: string
+          nullable: true
+        details:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Returns 200 if the server process is alive. Does not check the database.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+                      timestamp:
+                        type: string
+                        format: date-time
+                      uptime:
+                        type: number
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: Returns 200 only when the database connection is available.
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Server is ready
+        '503':
+          description: Database unavailable
+
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: API v1 health
+      operationId: getApiHealth
+      responses:
+        '200':
+          description: API is healthy
+
+  # ── Auth ────────────────────────────────────────────────────────────────────
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: |
+        Creates a new recruiter (or admin) account and returns tokens immediately.
+        Rate-limited to **20 requests / 15 min** per IP.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      description: |
+        Authenticates credentials and returns an access token (15 min) and refresh token (7 days).
+        Rate-limited to **20 requests / 15 min** per IP.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Invalid credentials
+        '429':
+          description: Rate limit exceeded
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: Exchanges a valid refresh token for new access + refresh tokens.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Invalid or expired refresh token
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      description: Stateless logout — client should discard both tokens.
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logged out
+        '401':
+          description: Unauthorized
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      description: Returns the authenticated user's profile.
+      operationId: getMe
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+
+  # ── Jobs ────────────────────────────────────────────────────────────────────
+  /api/v1/jobs:
+    get:
+      tags: [Jobs]
+      summary: List jobs
+      description: |
+        Returns a paginated list of jobs.
+        - **Unauthenticated** users only see `PUBLISHED` jobs.
+        - **Recruiters** see their own jobs (any status) plus all published jobs.
+        - **Admins** see all jobs regardless of status.
+      operationId: listJobs
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: search
+          in: query
+          description: Search by title or description
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, PUBLISHED, CLOSED]
+        - name: recruiterId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, title]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Paginated job list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      jobs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/JobResponse'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Jobs]
+      summary: Create a job
+      description: Creates a new job in `DRAFT` status. Requires authentication.
+      operationId: createJob
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobRequest'
+      responses:
+        '201':
+          description: Job created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+
+  /api/v1/jobs/{id}:
+    get:
+      tags: [Jobs]
+      summary: Get a job by ID
+      operationId: getJobById
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/JobResponse'
+        '403':
+          description: Draft job — not owned by user
+        '404':
+          description: Job not found
+
+    patch:
+      tags: [Jobs]
+      summary: Update a job
+      description: Partial update. Only the job's recruiter or an Admin can update.
+      operationId: updateJob
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJobRequest'
+      responses:
+        '200':
+          description: Job updated
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+
+    delete:
+      tags: [Jobs]
+      summary: Delete a job
+      operationId: deleteJob
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job deleted
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+
+  /api/v1/jobs/{id}/publish:
+    post:
+      tags: [Jobs]
+      summary: Publish a job
+      description: |
+        Transitions a `DRAFT` job to `PUBLISHED`.
+        Requires at least one `requiredSkill` to be set.
+      operationId: publishJob
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job published
+        '400':
+          description: No required skills set
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+
+  /api/v1/jobs/{id}/close:
+    post:
+      tags: [Jobs]
+      summary: Close a job
+      description: Transitions a `PUBLISHED` job to `CLOSED`.
+      operationId: closeJob
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job closed
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+
+  /api/v1/jobs/{id}/rankings:
+    get:
+      tags: [Jobs, Ranking]
+      summary: Get candidate rankings for a job
+      description: Returns a ranked leaderboard of screened candidates for this job.
+      operationId: getJobRankings
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: minScore
+          in: query
+          schema:
+            type: number
+        - name: recommendation
+          in: query
+          schema:
+            type: string
+            enum: [STRONG_MATCH, GOOD_MATCH, MODERATE_MATCH, LOW_MATCH]
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [matchScore, appliedAt]
+            default: matchScore
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Ranked candidates list
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+
+  /api/v1/jobs/{id}/rank:
+    post:
+      tags: [Jobs, Ranking]
+      summary: Trigger batch candidate ranking
+      description: |
+        Calls the Python ML service to evaluate and rank all pending applicants for this job.
+        Rate-limited to **30 requests / 5 min** per IP.
+      operationId: batchRankByJob
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRankRequest'
+      responses:
+        '200':
+          description: Ranking completed — returns updated leaderboard
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+        '429':
+          description: ML rate limit exceeded
+        '502':
+          description: ML service error
+
+  # ── Candidates ──────────────────────────────────────────────────────────────
+  /api/v1/candidates:
+    get:
+      tags: [Candidates]
+      summary: List candidates
+      description: Returns a paginated list of candidates. Requires authentication.
+      operationId: listCandidates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: search
+          in: query
+          description: Search by name, email, or location
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, email, createdAt]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Paginated candidate list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      candidates:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CandidateResponse'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Candidates]
+      summary: Create a candidate
+      operationId: createCandidate
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCandidateRequest'
+      responses:
+        '201':
+          description: Candidate created
+        '400':
+          description: Validation error
+        '409':
+          description: Email already registered
+
+  /api/v1/candidates/{id}:
+    get:
+      tags: [Candidates]
+      summary: Get candidate by ID
+      operationId: getCandidateById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Full candidate profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/CandidateResponse'
+        '404':
+          description: Candidate not found
+
+    patch:
+      tags: [Candidates]
+      summary: Update candidate
+      operationId: updateCandidate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCandidateRequest'
+      responses:
+        '200':
+          description: Candidate updated
+        '404':
+          description: Candidate not found
+
+    delete:
+      tags: [Candidates]
+      summary: Delete candidate
+      operationId: deleteCandidate
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Candidate deleted
+        '404':
+          description: Candidate not found
+
+  /api/v1/candidates/{id}/skills:
+    post:
+      tags: [Candidates]
+      summary: Add skill to candidate
+      operationId: addCandidateSkill
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddSkillRequest'
+      responses:
+        '201':
+          description: Skill added
+        '404':
+          description: Candidate not found
+        '409':
+          description: Skill already assigned to candidate
+
+  /api/v1/candidates/{id}/skills/{skillId}:
+    delete:
+      tags: [Candidates]
+      summary: Remove skill from candidate
+      operationId: removeCandidateSkill
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: skillId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Skill removed
+        '404':
+          description: Candidate or skill not found
+
+  /api/v1/candidates/{id}/education:
+    post:
+      tags: [Candidates]
+      summary: Add education entry
+      operationId: addCandidateEducation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddEducationRequest'
+      responses:
+        '201':
+          description: Education entry added
+        '404':
+          description: Candidate not found
+
+  /api/v1/candidates/{id}/education/{educationId}:
+    delete:
+      tags: [Candidates]
+      summary: Remove education entry
+      operationId: removeCandidateEducation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: educationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Education entry removed
+        '404':
+          description: Not found
+
+  /api/v1/candidates/{id}/experience:
+    post:
+      tags: [Candidates]
+      summary: Add experience entry
+      operationId: addCandidateExperience
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddExperienceRequest'
+      responses:
+        '201':
+          description: Experience entry added
+        '404':
+          description: Candidate not found
+
+  /api/v1/candidates/{id}/experience/{experienceId}:
+    delete:
+      tags: [Candidates]
+      summary: Remove experience entry
+      operationId: removeCandidateExperience
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: experienceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Experience entry removed
+        '404':
+          description: Not found
+
+  # ── Resumes ─────────────────────────────────────────────────────────────────
+  /api/v1/candidates/{candidateId}/resumes:
+    post:
+      tags: [Resumes]
+      summary: Upload a resume
+      description: |
+        Uploads a resume file for a candidate. Accepted formats: **PDF**, **DOCX**, **DOC**.
+        Maximum file size: **10 MB**.
+        The file is stored on disk and a metadata record is created with `UPLOADED` status.
+      operationId: uploadResume
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: candidateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [resume]
+              properties:
+                resume:
+                  type: string
+                  format: binary
+                  description: Resume file (PDF / DOCX / DOC, max 10 MB)
+      responses:
+        '201':
+          description: Resume uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ResumeResponse'
+        '400':
+          description: Invalid file type or size
+        '404':
+          description: Candidate not found
+
+    get:
+      tags: [Resumes]
+      summary: List candidate resumes
+      operationId: listResumes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: candidateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Paginated resume list
+        '404':
+          description: Candidate not found
+
+  /api/v1/resumes/{id}:
+    get:
+      tags: [Resumes]
+      summary: Get resume metadata
+      operationId: getResumeById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resume metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ResumeResponse'
+        '404':
+          description: Resume not found
+
+    delete:
+      tags: [Resumes]
+      summary: Delete a resume
+      description: Deletes the database record and the physical file from disk.
+      operationId: deleteResume
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resume deleted
+        '404':
+          description: Resume not found
+
+  /api/v1/resumes/{id}/download:
+    get:
+      tags: [Resumes]
+      summary: Download resume file
+      description: Streams the resume file with the original filename as `Content-Disposition`.
+      operationId: downloadResume
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resume file stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Resume not found or file missing on disk
+
+  # ── Applications ────────────────────────────────────────────────────────────
+  /api/v1/applications:
+    post:
+      tags: [Applications]
+      summary: Submit an application
+      description: |
+        Submits a candidate's application to a published job.
+        - The job must have `PUBLISHED` status.
+        - A candidate can only apply once per job (enforced by unique constraint).
+        - If `resumeId` is omitted, the candidate's most recent resume is used.
+      operationId: createApplication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationRequest'
+      responses:
+        '201':
+          description: Application submitted
+        '400':
+          description: Validation error or job not published
+        '404':
+          description: Candidate, job, or resume not found
+        '409':
+          description: Already applied
+
+    get:
+      tags: [Applications]
+      summary: List applications
+      operationId: listApplications
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: jobId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: candidateId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [APPLIED, PROCESSING, SCREENED, SHORTLISTED, REVIEWED, REJECTED, HIRED]
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [appliedAt, status, updatedAt]
+            default: appliedAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Paginated application list
+
+  /api/v1/applications/{id}:
+    get:
+      tags: [Applications]
+      summary: Get application details
+      description: Returns full application with candidate, job, resume, and screening results.
+      operationId: getApplicationById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Application details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ApplicationResponse'
+        '404':
+          description: Application not found
+
+  /api/v1/applications/{id}/status:
+    patch:
+      tags: [Applications]
+      summary: Update application status
+      description: |
+        Manually sets an application status.
+        Recruiters can only update applications for their own jobs.
+        Admins can update any.
+      operationId: updateApplicationStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApplicationStatusRequest'
+      responses:
+        '200':
+          description: Status updated
+        '403':
+          description: Forbidden — not your job
+        '404':
+          description: Application not found
+
+  /api/v1/applications/{id}/screen:
+    post:
+      tags: [Applications]
+      summary: Trigger AI screening
+      description: |
+        Sends the application to the Python ML service for multi-criteria evaluation:
+        - **Skill match** — required vs candidate skills
+        - **Experience match** — years and descriptions
+        - **Education match** — degree and institution
+        - **Semantic similarity** — NLP-based resume / job description matching
+
+        Persists a `ScreeningResult` and transitions the application to `SCREENED`.
+
+        Use `?force=true` to re-evaluate an already-screened application.
+
+        Rate-limited to **30 requests / 5 min** per IP.
+      operationId: screenApplication
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: force
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Screening complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      application:
+                        $ref: '#/components/schemas/ApplicationResponse'
+                      screeningResult:
+                        $ref: '#/components/schemas/ScreeningResultResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Application not found
+        '429':
+          description: ML rate limit exceeded
+        '502':
+          description: ML service error
+
+  /api/v1/applications/{id}/screening:
+    get:
+      tags: [Applications]
+      summary: Get screening history
+      description: Returns all past screening evaluations for an application, newest first.
+      operationId: getScreeningHistory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Screening history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScreeningResultResponse'
+        '404':
+          description: Application not found
+
+  # ── Ranking ─────────────────────────────────────────────────────────────────
+  /api/v1/ranking/jobs/{id}:
+    get:
+      tags: [Ranking]
+      summary: Get ranked leaderboard for a job
+      operationId: getRankings
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: minScore
+          in: query
+          schema:
+            type: number
+        - name: recommendation
+          in: query
+          schema:
+            type: string
+            enum: [STRONG_MATCH, GOOD_MATCH, MODERATE_MATCH, LOW_MATCH]
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [matchScore, appliedAt]
+            default: matchScore
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Ranked candidate leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      job:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          title:
+                            type: string
+                          status:
+                            type: string
+                      rankings:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RankingEntryResponse'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+
+    post:
+      tags: [Ranking]
+      summary: Trigger batch AI ranking
+      description: |
+        Calls the ML service `POST /api/v1/screening/rank` to score and rank all
+        eligible candidates in a single batch request. Persists results and returns
+        the updated leaderboard. Rate-limited to **30 requests / 5 min** per IP.
+      operationId: batchRank
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRankRequest'
+      responses:
+        '200':
+          description: Batch ranking completed
+        '403':
+          description: Forbidden
+        '404':
+          description: Job not found
+        '429':
+          description: ML rate limit exceeded
+        '502':
+          description: ML service unavailable
+
+  # ── Reports ─────────────────────────────────────────────────────────────────
+  /api/v1/reports/overview:
+    get:
+      tags: [Reports]
+      summary: Executive dashboard KPIs
+      description: Aggregate counts — total jobs, candidates, applications, screened, hired.
+      operationId: getOverviewReport
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Overview KPIs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/OverviewReport'
+
+  /api/v1/reports/screening:
+    get:
+      tags: [Reports]
+      summary: Screening score statistics
+      description: Score distribution, recommendation breakdown, and top candidates.
+      operationId: getScreeningReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: jobId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Screening statistics
+
+  /api/v1/reports/jobs:
+    get:
+      tags: [Reports]
+      summary: Aggregated job metrics
+      description: Per-job application counts, screening rates, and status summary.
+      operationId: getJobsReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, PUBLISHED, CLOSED]
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Job metrics
+
+  /api/v1/reports/jobs/{id}:
+    get:
+      tags: [Reports]
+      summary: Detailed single-job pipeline report
+      operationId: getJobReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Full job pipeline report
+        '404':
+          description: Job not found
+
+  /api/v1/reports/candidates:
+    get:
+      tags: [Reports]
+      summary: Talent pool statistics
+      description: Candidate and skill distribution analytics.
+      operationId: getCandidatesReport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Candidate pool statistics
+
+  # ── Audit Logs ──────────────────────────────────────────────────────────────
+  /api/v1/audit-logs:
+    get:
+      tags: [Audit Logs]
+      summary: Get security audit trail
+      description: |
+        Returns a paginated list of audit log entries.
+        **Admin role required.**
+
+        Logged actions include: `USER_REGISTER`, `USER_LOGIN`, `JOB_CREATE`,
+        `JOB_PUBLISH`, `JOB_CLOSE`, `JOB_DELETE`, `APPLICATION_CREATE`,
+        `APPLICATION_STATUS_UPDATE`, `SCREENING_EXECUTE`.
+      operationId: getAuditLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          schema:
+            type: string
+            example: USER_LOGIN
+        - name: resource
+          in: query
+          schema:
+            type: string
+            example: JOB
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      logs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLogResponse'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin role required
