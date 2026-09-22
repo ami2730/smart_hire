@@ -13,6 +13,35 @@ import { logger } from '../config/logger';
 import { resumeParserService } from './resume-parser.service';
 
 export class ApplicantService {
+    /**
+   * Helper to resolve candidate profile for the authenticated applicant user.
+   */
+  async getCandidateByUserId(userId: string) {
+    let candidate = await prisma.candidate.findUnique({
+      where: { userId },
+      include: {
+        skills: { include: { skill: true } },
+        education: true,
+        experience: true,
+        resumes: { orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }] },
+        applications: {
+          orderBy: { appliedAt: 'desc' },
+          include: {
+            job: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+              },
+            },
+            screeningResults: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
 }
 
 export const applicantService = new ApplicantService();
