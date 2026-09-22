@@ -153,6 +153,16 @@ async uploadResume(
 
     return resumeRepository.updateStatus(id, ResumeProcessingStatus.PROCESSING);
   }
+  async markProcessed(id: string, extractedText: string) {
+    const resume = await resumeRepository.findById(id);
+    if (!resume) throw new NotFoundError('Resume not found');
+
+    return resumeRepository.updateStatus(
+      id,
+      ResumeProcessingStatus.PROCESSED,
+      extractedText
+    );
+  }
 }
 
 
