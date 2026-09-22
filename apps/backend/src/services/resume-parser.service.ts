@@ -467,5 +467,12 @@ onst nextLine = expLines[i + 1] ?? '';
         logger.info({ err }, 'ML analyze endpoint deferred, relying on local NLP extraction');
       }
     }
+ // Merge skills
+    const combinedSkills = new Set<string>(localData.skills);
+    if (mlData?.skills && Array.isArray(mlData.skills)) {
+      for (const s of mlData.skills) {
+        if (s && typeof s === 'string') combinedSkills.add(s.trim());
+      }
+    }
 
 export const resumeParserService = new ResumeParserService();
