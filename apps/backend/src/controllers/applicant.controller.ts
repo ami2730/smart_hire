@@ -79,6 +79,15 @@ export class ApplicantController {
       next(error);
     }
   }
+  async getApplicationById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = req.params.id as string;
+      const application = await applicantService.getApplicationById(req.user!.id, id);
+      res.status(200).json({ success: true, data: { application } });
+    } catch (error) {
+      
+    }
+  }
 }
 
 export const applicantController = new ApplicantController();
