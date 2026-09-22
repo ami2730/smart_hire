@@ -231,5 +231,16 @@ export class ResumeParserService {
         extractedSkillsSet.add(canonical);
       }
     }
+     // 3. Extract Experience
+    const experience: ExtractedResumeData['experience'] = [];
+    const expLines = sections.experience ?? [];
+
+    if (expLines.length > 0) {
+      let currentJob: {
+        jobTitle: string;
+        company: string;
+        dates?: string;
+        description: string[];
+      } | null = null;
 
 export const resumeParserService = new ResumeParserService();
