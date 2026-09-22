@@ -199,6 +199,19 @@ class NotificationService {
         orderBy: { timestamp: 'desc' },
         take: 15,
       });
+      for (const log of auditLogs) {
+        const notifId = `admin-audit-${log.id}`;
+        notifications.push({
+          id: notifId,
+          title: `Audit: ${log.action.replace(/_/g, ' ')}`,
+          message: `${log.user?.name || 'System'} executed ${log.action} on ${log.resource}.`,
+          type: log.action.includes('DELETE') ? 'WARNING' : 'INFO',
+          category: 'SYSTEM',
+          timestamp: log.timestamp.toISOString(),
+          read: readSet.has(notifId),
+          link: '/settings',
+        });
+      }
 
     }
 
