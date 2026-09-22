@@ -385,6 +385,48 @@ if (!text) {
       source: 'REGISTERED',
     });
   }
+   /**
+   * List applicant's submitted applications.
+   */
+  async getApplications(userId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    return prisma.application.findMany({
+      where: { candidateId: candidate.id },
+      include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            location: true,
+            employmentType: true,
+            status: true,
+            publishedAt: true,
+            recruiter: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        resume: {
+          select: {
+            id: true,
+            originalFileName: true,
+            uploadedAt: true,
+          },
+        },
+        screeningResults: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { appliedAt: 'desc' },
+    });
+  }
+
 }
 
 export const applicantService = new ApplicantService();
