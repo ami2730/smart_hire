@@ -71,6 +71,22 @@ class NotificationService {
             read: readSet.has(notifId),
             link: '/applications',
           });
+           // 2. Screening results
+          const latestScreen = app.screeningResults[0];
+          if (latestScreen) {
+            const screenNotifId = `app-screen-${latestScreen.id}`;
+            notifications.push({
+              id: screenNotifId,
+              title: 'AI Screening Complete',
+              message: `AI evaluation finished for ${app.job.title} with a ${Math.round(latestScreen.overallScore)}% match rating.`,
+              type: 'SUCCESS',
+              category: 'SCREENING',
+              timestamp: latestScreen.createdAt.toISOString(),
+              read: readSet.has(screenNotifId),
+              link: '/applications',
+            });
+          }
+        }
 
     }
 
