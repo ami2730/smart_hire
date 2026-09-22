@@ -61,3 +61,14 @@ export class AdminController {
       next(error);
     }
   };
+getAuditLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const logs = await auditService.getLogs(req.query as any);
+      sendSuccess(res, logs, 200);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+export const adminController = new AdminController();
