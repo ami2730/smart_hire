@@ -88,6 +88,10 @@ export class ApplicantController {
       next(error);
     }
   }
+  async withdrawApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+    
+  }
 }
 
 export const applicantController = new ApplicantController();
