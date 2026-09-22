@@ -39,6 +39,12 @@ router.get(
   validateParams(resumeIdParamSchema),
   resumesController.getById
 );
-
+// GET /api/v1/resumes/:id/download — download the actual file
+router.get(
+  '/resumes/:id/download',
+  requireAuth,
+  validateParams(resumeIdParamSchema),
+  resumesController.download
+);
 
 export const resumesRoutes = router;
