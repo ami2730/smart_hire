@@ -75,5 +75,13 @@ class ResumesController {
       next(error);
     }
   };
+  // DELETE /api/v1/resumes/:id
+  delete = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+   
+}
 export const resumesController = new ResumesController();
   
