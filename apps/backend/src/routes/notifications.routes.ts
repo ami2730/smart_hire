@@ -3,6 +3,18 @@ import { notificationService } from '../services/notification.service';
 import { sendSuccess } from '../utils/response';
 
 export class NotificationsController {
+      getNotifications = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const data = await notificationService.getNotifications(req.user!);
+      sendSuccess(res, data, 200);
+    } catch (error) {
+      next(error);
+    }
+  };
     }
 
 export const notificationsController = new NotificationsController();
