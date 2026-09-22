@@ -323,6 +323,61 @@ if (!text) {
       userId,
     });
   }
+  /**
+   * Submit an application for a published job.
+   */
+  async applyForJob(
+    userId: string,
+    data: {
+      jobId: string;
+      resumeId?: string;
+      coverLetter?: string;
+    }
+  ) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    let effectiveResumeId = data.resumeId;
+    if (effectiveResumeId) {
+      const candidateResumes = candidate.resumes || [];
+      const ownsResume = candidateResumes.some((r: any) => r.id === effectiveResumeId);
+
+      if (!ownsResume) {
+        // Check if the resume belongs to a matching candidate (e.g. legacy/orphaned candidate with same email or user)
+        const resume = await prisma.resume.findUnique({
+          where: { id: effectiveResumeId },
+          include: { candidate: true },
+        });
+
+        if (resume && resume.candidate) {
+          const isSameUser =
+            (resume.candidate.userId && resume.candidate.userId === userId) ||
+            (resume.candidate.email && candidate.email && resume.candidate.email.toLowerCase() === candidate.email.toLowerCase());
+
+          if (isSameUser) {
+            // Re-assign resume to current candidate profile
+            await prisma.resume.update({
+              where: { id: resume.id },
+              data: { candidateId: candidate.id },
+            });
+            effectiveResumeId = resume.id;
+          } else {
+            logger.warn(
+              { userId, candidateId: candidate.id, requestedResumeId: data.resumeId, resumeCandidateId: resume.candidateId },
+              'Requested resume belongs to a different candidate; falling back to candidate default resume'
+            );
+            const defaultResume = candidateResumes.find((r: any) => r.isDefault) || candidateResumes[0];
+            effectiveResumeId = defaultResume ? defaultResume.id : undefined;
+          }
+        } else {
+          const defaultResume = candidateResumes.find((r: any) => r.isDefault) || candidateResumes[0];
+          effectiveResumeId = defaultResume ? defaultResume.id : undefined;
+        }
+      }
+    } else {
+      const defaultResume = (candidate.resumes || []).find((r: any) => r.isDefault) || candidate.resumes?.[0];
+      effectiveResumeId = defaultResume ? defaultResume.id : undefined;
+    }
+
 }
 
 export const applicantService = new ApplicantService();
