@@ -13,3 +13,14 @@ export class AdminController {
       next(error);
     }
   };
+  
+  updateUserStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = req.params.id as string;
+      const { isActive } = req.body;
+      const user = await adminService.updateUserStatus(id, isActive, req.user!.id);
+      sendSuccess(res, { user }, 200);
+    } catch (error) {
+      next(error);
+    }
+  };
