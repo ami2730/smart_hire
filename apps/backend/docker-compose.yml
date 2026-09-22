@@ -1,0 +1,59 @@
+# SmartHire Backend Local Compose
+# For the full multi-service stack (Postgres + ML Service + Backend), use the root docker-compose.yml:
+#   docker compose -f ../../docker-compose.yml up --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smarthire-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smarthire}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-smarthire}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smarthire-backend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-smarthire}?schema=public
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-super-secret-jwt-access-key-minimum-16-chars}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-super-secret-jwt-refresh-key-minimum-16-chars}
+      - JWT_ACCESS_EXPIRES_IN=15m
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - ML_SERVICE_URL=${ML_SERVICE_URL:-http://host.docker.internal:8000}
+      - CORS_ORIGIN=http://localhost:3000
+      - LOG_LEVEL=info
+      - UPLOAD_DIR=./uploads
+      - MAX_RESUME_SIZE_MB=10
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - resume_uploads:/app/uploads/resumes
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres_data:
+  resume_uploads:
