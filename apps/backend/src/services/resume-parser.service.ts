@@ -242,5 +242,22 @@ export class ResumeParserService {
         dates?: string;
         description: string[];
       } | null = null;
+ for (let i = 0; i < expLines.length; i++) {
+        const line = expLines[i] ?? '';
+
+        // Check if line looks like a job title or company
+        const isDateLine =
+          /\b(20\d\d|19\d\d|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|present|current)\b/i.test(
+            line ?? ''
+          );
+        const isLocationLine =
+          /\b(ethiopia|addis\s+ababa|remote|adama|usa|kenya|germany|uk|canada)\b/i.test(line ?? '');
+        const isEmailLine = /@/.test(line ?? '');
+
+        // Detect job title
+        const isJobTitleCandidate =
+          /\b(engineer|developer|designer|manager|architect|lead|intern|consultant|analyst|specialist|administrator)\b/i.test(
+            line
+          );
 
 export const resumeParserService = new ResumeParserService();
