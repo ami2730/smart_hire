@@ -92,7 +92,14 @@ export class ApplicantController {
     try {
      const id = req.params.id as string;
       const application = await applicantService.withdrawApplication(req.user!.id, id);
-     
+    res.status(200).json({
+        success: true,
+        message: 'Application withdrawn successfully',
+        data: { application },
+      });
+    } catch (error) {
+      
+    }   
   }
 }
 
