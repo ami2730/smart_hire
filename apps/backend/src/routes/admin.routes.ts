@@ -14,3 +14,7 @@ router.use(requireRole(Role.ADMIN));
 const idParamSchema = z.object({
   id: z.string().uuid('Invalid ID format'),
 });
+
+const updateUserStatusSchema = z.object({
+  isActive: z.boolean({ required_error: 'isActive status is required' }),
+});
