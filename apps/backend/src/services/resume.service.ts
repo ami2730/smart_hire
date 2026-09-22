@@ -104,6 +104,23 @@ async uploadResume(
     if (!resume) throw new NotFoundError('Resume not found');
     return formatResume(resume);
   }
+  // ── Download (return file path) ────────────────────────────────────────────
+
+  async getResumeFilePath(id: string): Promise<{
+    filePath: string;
+    originalFileName: string;
+    mimeType: string;
+  }> {
+    const resume = await resumeRepository.findById(id);
+    if (!resume) throw new NotFoundError('Resume not found');
+
+    const absolutePath = path.isAbsolute(resume.storedFileName)
+      ? resume.storedFileName
+      : path.join(UPLOAD_DIR, resume.storedFileName);
+
+    if (!fs.existsSync(absolutePath)) {
+      throw new FileUploadError('Resume file not found on disk', 404);
+    }
 }
 
 
