@@ -108,7 +108,16 @@ export class ApplicantService {
       location?: string;
       summary?: string;
     }
-  )
+  ){
+    const candidate = await this.getCandidateByUserId(userId);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (data.name) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { name: data.name },
+        });
+      }
 
 }
 
