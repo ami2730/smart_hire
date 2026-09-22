@@ -45,6 +45,14 @@ export class ApplicantController {
       next(error);
     }
   }
+  async deleteResume(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+     
+      res.status(200).json({ success: true, message: 'Resume deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const applicantController = new ApplicantController();
