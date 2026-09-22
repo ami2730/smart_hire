@@ -223,4 +223,13 @@ export class ResumeParserService {
         }
       }
     }
+    // Also scan the entire resume text for all canonical skills to catch mentions elsewhere
+    const fullTextLower = ` ${rawText.toLowerCase().replace(/[,/()]/g, ' ')} `;
+    for (const [key, canonical] of Object.entries(CANONICAL_SKILLS)) {
+      const regex = new RegExp(`[\\s]${key.replace(/[.+*?^${}()|[\]\\]/g, '\\$&')}[\\s]`, 'i');
+      if (regex.test(fullTextLower)) {
+        extractedSkillsSet.add(canonical);
+      }
+    }
+
 export const resumeParserService = new ResumeParserService();
