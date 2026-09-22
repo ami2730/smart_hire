@@ -70,6 +70,18 @@ export class RankingService {
       // Only process applications not already screened
       eligibleApps = eligibleApps.filter((a) => a.status !== ApplicationStatus.SCREENED);
     }
+    if (eligibleApps.length === 0) {
+      // No new applications to evaluate; return existing rankings
+      const existing = await this.getJobRankings(
+        jobId,
+        {
+          page: 1,
+          limit: 10,
+          sortBy: 'matchScore',
+          sortOrder: 'desc',
+        },
+        user
+      );
 }
 
 export const rankingService = new RankingService();
