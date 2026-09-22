@@ -3,7 +3,7 @@ import { notificationService } from '../services/notification.service';
 import { sendSuccess } from '../utils/response';
 
 export class NotificationsController {
-    getNotifications = async (
+  getNotifications = async (
     req: Request,
     res: Response,
     next: NextFunction
@@ -15,6 +15,7 @@ export class NotificationsController {
       next(error);
     }
   };
+
   markAllAsRead = async (
     req: Request,
     res: Response,
@@ -27,7 +28,8 @@ export class NotificationsController {
       next(error);
     }
   };
-markAsRead = async (
+
+  markAsRead = async (
     req: Request,
     res: Response,
     next: NextFunction
@@ -40,7 +42,6 @@ markAsRead = async (
       next(error);
     }
   };
-
-    }
+}
 
 export const notificationsController = new NotificationsController();
