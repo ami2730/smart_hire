@@ -27,7 +27,16 @@ export class RankingService {
     }
     const { candidates, total } = await rankingRepository.getRankingsForJob(jobId, query);
     const pagination = buildPaginationMeta(total, query.page, query.limit);
-
+ return {
+      job: {
+        id: job.id,
+        title: job.title,
+        status: job.status,
+      },
+      rankings: candidates,
+      pagination,
+    };
+  }
 }
 
 export const rankingService = new RankingService();
