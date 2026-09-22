@@ -29,7 +29,16 @@ class ResumesController {
     req: Request,
     res: Response,
     next: NextFunction
-  ): Promise<void> =>
-
+  ): Promise<void> =>{
+    try {
+      const { resumes, pagination } = await resumeService.listResumes(
+        req.params['candidateId']!,
+        req.query as unknown as ResumeQueryInput
+      );
+      sendSuccess(res, { resumes }, 200, pagination);
+    } catch (error) {
+      
+    }
+  };
 export const resumesController = new ResumesController();
   
