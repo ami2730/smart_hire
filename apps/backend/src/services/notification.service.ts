@@ -12,3 +12,9 @@ export interface AppNotification {
   read: boolean;
   link: string;
 }
+
+class NotificationService {
+
+    }
+
+export const notificationService = new NotificationService();
