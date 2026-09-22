@@ -25,4 +25,8 @@ const applyJobSchema = z.object({
   coverLetter: z.string().trim().max(5000).optional(),
 });
 
+const idParamSchema = z.object({
+  id: z.string().uuid('Invalid ID format'),
+});
+
 export const applicantRoutes = router;
