@@ -143,7 +143,16 @@ await auditService.log({
 
     return updated;
   }
-
+**
+   * List applicant's uploaded resumes.
+   */
+  async getResumes(userId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+    return prisma.resume.findMany({
+      where: { candidateId: candidate.id },
+      orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }],
+    });
+  }
 }
 
 export const applicantService = new ApplicantService();
