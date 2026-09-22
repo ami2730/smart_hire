@@ -219,6 +219,19 @@ await auditService.log({
         processedAt: extractedText ? new Date() : null,
       },
     });
+    if (extractedText) {
+      try {
+        const fileBuffer = file.buffer || (fs.existsSync(file.path) ? fs.readFileSync(file.path) : null);
+        await resumeParserService.parseAndSyncProfile(
+          candidate.id,
+          extractedText,
+          fileBuffer,
+          file.originalname
+        );
+      } catch (parseErr) {
+        logger.warn({ err: parseErr, candidateId: candidate.id }, 'Auto-extraction of profile data from resume failed');
+      }
+    }
 }
 
 export const applicantService = new ApplicantService();
