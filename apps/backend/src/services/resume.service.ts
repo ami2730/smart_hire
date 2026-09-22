@@ -97,6 +97,13 @@ async uploadResume(
       },
     };
   }
+  // ── Get single ─────────────────────────────────────────────────────────────
+
+  async getResume(id: string): Promise<ReturnType<typeof formatResume>> {
+    const resume = await resumeRepository.findById(id);
+    if (!resume) throw new NotFoundError('Resume not found');
+    return formatResume(resume);
+  }
 }
 
 
