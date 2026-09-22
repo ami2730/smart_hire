@@ -203,4 +203,24 @@ export class ResumeParserService {
       const tokens = line.split(/[,|;•\t]/).map((t) => t.trim());
       for (const token of tokens) {
         if (!token) continue;
+        const normalizedKey = token.toLowerCase();
+        if (CANONICAL_SKILLS[normalizedKey]) {
+          extractedSkillsSet.add(CANONICAL_SKILLS[normalizedKey]);
+        } else if (token.length >= 2 && token.length <= 35 && !/\s{3,}/.test(token)) {
+          // Check if token matches a canonical skill substring
+          let matched = false;
+          for (const [key, canonical] of Object.entries(CANONICAL_SKILLS)) {
+            const regex = new RegExp(`\\b${key.replace(/[.+*?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            if (regex.test(token)) {
+              extractedSkillsSet.add(canonical);
+              matched = true;
+            }
+          }
+          if (!matched && /^[a-zA-Z0-9#+.\s\-/]+$/.test(token)) {
+            // Include user-defined skill cleanly capitalized
+            extractedSkillsSet.add(token);
+          }
+        }
+      }
+    }
 export const resumeParserService = new ResumeParserService();
