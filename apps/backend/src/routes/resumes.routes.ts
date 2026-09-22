@@ -30,5 +30,15 @@ router.get(
   validateQuery(resumeQuerySchema),
   resumesController.list
 );
+// ── Resume-level routes ───────────────────────────────────────────────────────
+
+// GET /api/v1/resumes/:id — get resume metadata
+router.get(
+  '/resumes/:id',
+  requireAuth,
+  validateParams(resumeIdParamSchema),
+  resumesController.getById
+);
+
 
 export const resumesRoutes = router;
