@@ -274,6 +274,20 @@ let text = targetResume.extractedText;
         });
       }
     }
+if (!text) {
+      throw new ValidationError('Could not extract text from the selected resume file');
+    }
+
+    const extracted = await resumeParserService.parseAndSyncProfile(
+      candidate.id,
+      text,
+      fileBuffer,
+      targetResume.originalFileName
+    );
+
+    const updated = await this.getCandidateByUserId(userId);
+    return { profile: updated, extracted };
+  }
 
 }
 
