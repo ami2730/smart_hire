@@ -70,7 +70,22 @@ async uploadResume(
     );
 
     return formatResume(resume);
-  }
+  }async listResumes(
+    candidateId: string,
+    query: ResumeQueryInput
+  ): Promise<{
+    resumes: ReturnType<typeof formatResume>[];
+    pagination: PaginationMeta;
+  }> {
+    const candidate = await candidateRepository.findById(candidateId);
+    if (!candidate) throw new NotFoundError('Candidate not found');
+
+    const { resumes, total } = await resumeRepository.findByCandidateId(
+      candidateId,
+      query
+    );
+    const totalPages = Math.ceil(total / query.limit);
+
 }
 
 
