@@ -141,6 +141,34 @@ class NotificationService {
           link: `/applications/${app.id}`,
         });
       }
+      // 2. Recent screening evaluations
+      const recentScreenings = await prisma.screeningResult.findMany({
+        include: {
+          application: {
+            include: {
+              candidate: { select: { id: true, name: true } },
+              job: { select: { id: true, title: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      for (const scr of recentScreenings) {
+        const notifId = `rec-scr-${scr.id}`;
+        notifications.push({
+          id: notifId,
+          title: 'AI Screening Processed',
+          message: `${scr.application.candidate.name} screened for "${scr.application.job.title}" (${Math.round(scr.overallScore)}% · ${scr.recommendation.replace(/_/g, ' ')}).`,
+          type: scr.overallScore >= 80 ? 'SUCCESS' : 'INFO',
+          category: 'SCREENING',
+          timestamp: scr.createdAt.toISOString(),
+          read: readSet.has(notifId),
+          link: `/applications/${scr.applicationId}/screening`,
+        });
+      }
+
 
     }
 
