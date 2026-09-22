@@ -212,6 +212,15 @@ class NotificationService {
           link: '/settings',
         });
       }
+       // 2. Recent job postings
+      const recentJobs = await prisma.job.findMany({
+        include: {
+          recruiter: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      });
+
 
     }
 
