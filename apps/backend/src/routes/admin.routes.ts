@@ -10,3 +10,7 @@ const router = Router();
 // All admin routes strictly require Role.ADMIN
 router.use(requireAuth);
 router.use(requireRole(Role.ADMIN));
+
+const idParamSchema = z.object({
+  id: z.string().uuid('Invalid ID format'),
+});
