@@ -31,3 +31,6 @@ router.patch(
 // Specific role directories
 router.get('/applicants', adminController.getApplicants);
 router.get('/recruiters', adminController.getRecruiters);
+
+// Platform jobs management
+router.get('/jobs', adminController.getJobs);
