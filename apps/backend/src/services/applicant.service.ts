@@ -232,6 +232,16 @@ await auditService.log({
         logger.warn({ err: parseErr, candidateId: candidate.id }, 'Auto-extraction of profile data from resume failed');
       }
     }
+     await auditService.log({
+      action: 'RESUME_UPLOAD',
+      resource: 'RESUME',
+      resourceId: resume.id,
+      userId,
+      details: { fileName: file.originalname, isDefault: shouldBeDefault },
+    });
+
+    return resume;
+  }
 }
 
 export const applicantService = new ApplicantService();
