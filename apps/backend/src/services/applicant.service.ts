@@ -254,6 +254,26 @@ await auditService.log({
     if (!targetResume) {
       throw new NotFoundError('No resume found to extract profile data from');
     }
+let text = targetResume.extractedText;
+    let fileBuffer: Buffer | null = null;
+    if (fs.existsSync(targetResume.filePath)) {
+      fileBuffer = fs.readFileSync(targetResume.filePath);
+    }
+
+    if (!text && fileBuffer) {
+      const extraction = await mlClient.extractResume(
+        fileBuffer,
+        targetResume.originalFileName,
+        targetResume.mimeType
+      );
+      if (extraction?.text) {
+        text = extraction.text;
+        await prisma.resume.update({
+          where: { id: targetResume.id },
+          data: { extractedText: text, processingStatus: ResumeProcessingStatus.PROCESSED },
+        });
+      }
+    }
 
 }
 
