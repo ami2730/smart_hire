@@ -29,7 +29,18 @@ export class ApplicantController {
   }
   async uploadResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      
+      if (!req.file) {
+        throw new ValidationError('No resume file provided');
+      }
+
+      const isDefault = req.body.isDefault === 'true' || req.body.isDefault === true;
+      const resume = await applicantService.uploadResume(
+        req.user!.id,
+        req.file,
+        isDefault
+      );
+
+      res.status(201).json({ success: true, data: { resume } });
     } catch (error) {
       next(error);
     }
