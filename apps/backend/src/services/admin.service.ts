@@ -245,6 +245,32 @@ export class AdminService {
    * System-wide platform overview statistics.
    */
   
+async getSystemOverview() {
+    const [
+      totalUsers,
+      totalRecruiters,
+      totalApplicants,
+      totalJobs,
+      activeJobs,
+      totalApplications,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { role: Role.RECRUITER } }),
+      prisma.candidate.count(),
+      prisma.job.count(),
+      prisma.job.count({ where: { status: 'PUBLISHED' } }),
+      prisma.application.count(),
+    ]);
 
+    return {
+      totalUsers,
+      totalRecruiters,
+      totalApplicants,
+      totalJobs,
+      activeJobs,
+      totalApplications,
+    };
+  }
+}
  
 export const adminService = new AdminService();
