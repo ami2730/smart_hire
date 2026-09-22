@@ -34,3 +34,9 @@ router.get('/recruiters', adminController.getRecruiters);
 
 // Platform jobs management
 router.get('/jobs', adminController.getJobs);
+
+// System reporting & compliance
+router.get('/reports', adminController.getReports);
+router.get('/audit-logs', adminController.getAuditLogs);
+
+export const adminRoutes = router;
