@@ -121,6 +121,12 @@ async uploadResume(
     if (!fs.existsSync(absolutePath)) {
       throw new FileUploadError('Resume file not found on disk', 404);
     }
+    return {
+      filePath: absolutePath,
+      originalFileName: resume.originalFileName,
+      mimeType: resume.mimeType,
+    };
+  }
 }
 
 
