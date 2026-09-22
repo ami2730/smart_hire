@@ -31,5 +31,5 @@ const idParamSchema = z.object({
 
 // Profile endpoints
 router.get('/profile', applicantController.getProfile);
-
+router.patch('/profile', validateBody(updateProfileSchema), applicantController.updateProfile);
 export const applicantRoutes = router;
