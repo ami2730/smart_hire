@@ -35,4 +35,6 @@ router.patch('/profile', validateBody(updateProfileSchema), applicantController.
 router.post('/profile/sync-resume', applicantController.syncResume);
 // Resumes endpoints
 router.get('/resumes', applicantController.getResumes);
+router.post('/resumes', resumeUpload.single('resume'),
+
 export const applicantRoutes = router;
