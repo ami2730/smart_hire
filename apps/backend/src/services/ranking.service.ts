@@ -119,6 +119,30 @@ export class RankingService {
           logger.warn({ resumeId: fullApp.resume.id, err }, 'Failed to extract resume text');
         }
       }
+       const skills = fullApp.candidate.skills.map((s) => s.skill.name);
+      const experience = fullApp.candidate.experience.map(
+        (e) =>
+          `${e.jobTitle} at ${e.company}${e.years ? ` (${e.years} years)` : ''}${
+            e.description ? `: ${e.description}` : ''
+          }`
+      );
+      const education = fullApp.candidate.education.map(
+        (ed) => `${ed.degree}${ed.field ? ` in ${ed.field}` : ''} from ${ed.institution}`
+      );
+
+      candidateInputs.push({
+        id: fullApp.candidateId,
+        resume_text: resumeText,
+        skills,
+        experience,
+        education,
+      });
+    }
+
+    logger.info(
+      { jobId, candidateCount: candidateInputs.length },
+      'Triggering batch candidate ranking via ML service'
+    );
 }
 
 export const rankingService = new RankingService();
