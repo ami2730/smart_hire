@@ -169,7 +169,18 @@ async uploadResume(
 
     return resumeRepository.updateStatus(id, ResumeProcessingStatus.FAILED);
   }
+ // ── Private helpers ────────────────────────────────────────────────────────
 
+  private safeDeleteFile(filePath: string): void {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (err) {
+      logger.warn({ filePath, err }, 'Failed to delete resume file from disk');
+    }
+  }
+}
 }
 
 
