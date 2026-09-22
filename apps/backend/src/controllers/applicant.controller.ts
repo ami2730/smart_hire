@@ -85,7 +85,7 @@ export class ApplicantController {
       const application = await applicantService.getApplicationById(req.user!.id, id);
       res.status(200).json({ success: true, data: { application } });
     } catch (error) {
-      
+      next(error);
     }
   }
 }
