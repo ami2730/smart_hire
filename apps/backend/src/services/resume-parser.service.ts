@@ -430,6 +430,28 @@ onst nextLine = expLines[i + 1] ?? '';
     }
     return 1.0;
   }
+ /**
+   * Complete pipeline: parse resume text + optional ML analysis, and persist
+   * skills, experience, and education into the PostgreSQL database for the candidate.
+   */
+  async parseAndSyncProfile(
+    candidateId: string,
+    extractedText: string,
+    fileBuffer?: Buffer | null,
+    fileName?: string
+  ): Promise<ExtractedResumeData> {
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId },
+      include: {
+        skills: { include: { skill: true } },
+        experience: true,
+        education: true,
+      },
+    });
+
+    if (!candidate) {
+      throw new Error(`Candidate with id ${candidateId} not found`);
+    }
 
 
 export const resumeParserService = new ResumeParserService();
