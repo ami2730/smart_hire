@@ -1,0 +1,31 @@
+# SmartHire ML Service — Requirements
+# Pin to stable, compatible versions.
+
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+
+# Settings & validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# ML & NLP
+scikit-learn==1.5.2
+pandas==2.2.3
+numpy==1.26.4
+joblib==1.4.2
+
+# Document processing
+PyMuPDF==1.24.13
+python-docx==1.1.2
+
+# HTTP client (for inter-service calls & testing)
+httpx==0.28.0
+
+# Environment
+python-dotenv==1.0.1
+
+# Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
