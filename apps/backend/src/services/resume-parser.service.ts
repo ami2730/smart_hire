@@ -108,6 +108,27 @@ const DEGREE_PATTERNS = [
   /\b(associate(?:\s+degree)?|diploma|higher\s+diploma|certificate|certification)\b/i,
 ];
 
-
+export interface ExtractedResumeData {
+  skills: string[];
+  jobTitle?: string;
+  experience: Array<{
+    jobTitle: string;
+    company: string;
+    years?: number;
+    description?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }>;
+  education: Array<{
+    degree: string;
+    field?: string;
+    institution: string;
+    startDate?: Date;
+    endDate?: Date;
+  }>;
+  location?: string;
+  phone?: string;
+  summary?: string;
+}
 
 export const resumeParserService = new ResumeParserService();
