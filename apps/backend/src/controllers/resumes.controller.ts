@@ -81,7 +81,13 @@ class ResumesController {
     res: Response,
     next: NextFunction
   ): Promise<void> => {
-   
+    try {
+      await resumeService.deleteResume(req.params['id']!);
+      sendSuccess(res, { message: 'Resume deleted successfully' });
+    } catch (error) {
+      
+    }
+  };
 }
 export const resumesController = new ResumesController();
   
