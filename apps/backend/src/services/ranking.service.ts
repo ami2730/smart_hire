@@ -82,6 +82,11 @@ export class RankingService {
         },
         user
       );
+        return {
+        ...existing,
+        message: 'No pending applications found to evaluate. All candidates already screened.',
+      };
+    }
 }
 
 export const rankingService = new RankingService();
