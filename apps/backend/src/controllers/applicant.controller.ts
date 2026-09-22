@@ -98,7 +98,7 @@ export class ApplicantController {
         data: { application },
       });
     } catch (error) {
-      
+      next(error);
     }   
   }
 }
