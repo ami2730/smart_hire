@@ -98,6 +98,9 @@ export class ApplicantService {
      if (!candidate) {
       throw new NotFoundError('Applicant profile not found');
     }
+    return candidate;
+  }
+
 }
 
 export const applicantService = new ApplicantService();
