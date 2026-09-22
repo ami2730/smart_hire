@@ -71,6 +71,14 @@ export class ApplicantController {
       next(error);
     }
   }
+   async getApplications(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const applications = await applicantService.getApplications(req.user!.id);
+      res.status(200).json({ success: true, data: { applications } });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const applicantController = new ApplicantController();
