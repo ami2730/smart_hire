@@ -513,4 +513,23 @@ onst nextLine = expLines[i + 1] ?? '';
           },
         });
       }
+       // B. Upsert extracted skills
+      for (const skillName of combinedSkills) {
+        if (!skillName || skillName.trim().length < 2) continue;
+        const cleanName = skillName.trim();
+
+        let skill = await tx.skill.findUnique({
+          where: { name: cleanName },
+        });
+
+        if (!skill) {
+          skill = await tx.skill.create({
+            data: {
+              name: cleanName,
+              normalizedName: cleanName.toLowerCase(),
+              source: 'AUTO_RESUME_EXTRACTION',
+            },
+          });
+        }
+
 export const resumeParserService = new ResumeParserService();
