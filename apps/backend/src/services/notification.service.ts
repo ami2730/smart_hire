@@ -87,6 +87,21 @@ class NotificationService {
             });
           }
         }
+        // 3. Resumes
+        for (const res of candidate.resumes) {
+          const resNotifId = `res-${res.id}`;
+          notifications.push({
+            id: resNotifId,
+            title: 'Resume Processed',
+            message: `Resume "${res.originalFileName}" status: ${res.processingStatus.toLowerCase()}.`,
+            type: res.processingStatus === 'PROCESSED' ? 'SUCCESS' : 'INFO',
+            category: 'RESUME',
+            timestamp: res.uploadedAt.toISOString(),
+            read: readSet.has(resNotifId),
+            link: '/settings',
+          });
+        }
+      }
 
     }
 
