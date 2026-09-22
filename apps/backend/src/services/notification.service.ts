@@ -115,6 +115,18 @@ class NotificationService {
         orderBy: { appliedAt: 'desc' },
         take: 15,
       });
+       // If recruiter has no owned jobs yet, also pull global recent applications
+      const appsToUse =
+        recentApps.length > 0
+          ? recentApps
+          : await prisma.application.findMany({
+              include: {
+                candidate: { select: { id: true, name: true } },
+                job: { select: { id: true, title: true } },
+              },
+              orderBy: { appliedAt: 'desc' },
+              take: 10,
+            });
 
     }
 
