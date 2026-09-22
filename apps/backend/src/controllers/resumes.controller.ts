@@ -10,6 +10,20 @@ class ResumesController {
     req: Request,
     res: Response,
     next: NextFunction
-  ): Promise<void> =>
+  ): Promise<void> =>try {
+      if (!req.file) {
+        throw new FileUploadError('No file provided. Please attach a PDF or DOCX file.');
+      }
+
+      const resume = await resumeService.uploadResume(
+        req.params['candidateId']!,
+        req.file
+      );
+      sendSuccess(res, { resume }, 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
 export const resumesController = new ResumesController();
   
