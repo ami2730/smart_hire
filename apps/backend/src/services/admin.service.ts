@@ -197,5 +197,54 @@ export class AdminService {
   /**
    * List all platform jobs for administration.
    */
+   async listJobs(query: { page?: number; limit?: number; search?: string }) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.JobWhereInput = {
+      ...(query.search && {
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { description: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [jobs, total] = await Promise.all([
+      prisma.job.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          recruiter: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: {
+              applications: true,
+            },
+          },
+        },
+      }),
+      prisma.job.count({ where }),
+    ]);
+
+    return {
+      jobs,
+      pagination: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  /**
+   * System-wide platform overview statistics.
+   */
+  
+
  
 export const adminService = new AdminService();
