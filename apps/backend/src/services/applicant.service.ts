@@ -118,6 +118,23 @@ export class ApplicantService {
           data: { name: data.name },
         });
       }
+      return tx.candidate.update({
+        where: { id: candidate.id },
+        data: {
+          name: data.name,
+          phone: data.phone,
+          location: data.location,
+          summary: data.summary,
+        },
+        include: {
+          skills: { include: { skill: true } },
+          education: true,
+          experience: true,
+          resumes: true,
+        },
+      });
+    });
+
 
 }
 
