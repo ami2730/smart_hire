@@ -18,6 +18,7 @@ interface PaginationMeta {
 }
 
 // ── Safe resume response shape ────────────────────────────────────────────────
+
 function formatResume(resume: {
   id: string;
   candidateId: string;
@@ -46,11 +47,14 @@ function formatResume(resume: {
       : {}),
     candidate: resume.candidate ?? null,
   };
-  // ── Service ───────────────────────────────────────────────────────────────────
+}
+
+// ── Service ───────────────────────────────────────────────────────────────────
 
 class ResumeService {
   // ── Upload ─────────────────────────────────────────────────────────────────
-async uploadResume(
+
+  async uploadResume(
     candidateId: string,
     file: Express.Multer.File
   ) {
@@ -61,7 +65,8 @@ async uploadResume(
       this.safeDeleteFile(file.path);
       throw new NotFoundError('Candidate not found');
     }
-     const metadata = buildFileMetadata(file);
+
+    const metadata = buildFileMetadata(file);
     const resume = await resumeRepository.create({ candidateId, ...metadata });
 
     logger.info(
@@ -70,7 +75,11 @@ async uploadResume(
     );
 
     return formatResume(resume);
-  }async listResumes(
+  }
+
+  // ── List by candidate ──────────────────────────────────────────────────────
+
+  async listResumes(
     candidateId: string,
     query: ResumeQueryInput
   ): Promise<{
@@ -85,7 +94,8 @@ async uploadResume(
       query
     );
     const totalPages = Math.ceil(total / query.limit);
- return {
+
+    return {
       resumes: resumes.map(formatResume),
       pagination: {
         page: query.page,
@@ -97,6 +107,7 @@ async uploadResume(
       },
     };
   }
+
   // ── Get single ─────────────────────────────────────────────────────────────
 
   async getResume(id: string): Promise<ReturnType<typeof formatResume>> {
@@ -104,6 +115,7 @@ async uploadResume(
     if (!resume) throw new NotFoundError('Resume not found');
     return formatResume(resume);
   }
+
   // ── Download (return file path) ────────────────────────────────────────────
 
   async getResumeFilePath(id: string): Promise<{
@@ -121,12 +133,16 @@ async uploadResume(
     if (!fs.existsSync(absolutePath)) {
       throw new FileUploadError('Resume file not found on disk', 404);
     }
+
     return {
       filePath: absolutePath,
       originalFileName: resume.originalFileName,
       mimeType: resume.mimeType,
     };
   }
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+
   async deleteResume(id: string): Promise<void> {
     const resume = await resumeRepository.findById(id);
     if (!resume) throw new NotFoundError('Resume not found');
@@ -145,7 +161,8 @@ async uploadResume(
       'Resume deleted'
     );
   }
-// ── Mark processing status (used by ML service integration in Phase 7) ─────
+
+  // ── Mark processing status (used by ML service integration in Phase 7) ─────
 
   async markProcessing(id: string) {
     const resume = await resumeRepository.findById(id);
@@ -153,6 +170,7 @@ async uploadResume(
 
     return resumeRepository.updateStatus(id, ResumeProcessingStatus.PROCESSING);
   }
+
   async markProcessed(id: string, extractedText: string) {
     const resume = await resumeRepository.findById(id);
     if (!resume) throw new NotFoundError('Resume not found');
@@ -163,13 +181,15 @@ async uploadResume(
       extractedText
     );
   }
+
   async markFailed(id: string) {
     const resume = await resumeRepository.findById(id);
     if (!resume) throw new NotFoundError('Resume not found');
 
     return resumeRepository.updateStatus(id, ResumeProcessingStatus.FAILED);
   }
- // ── Private helpers ────────────────────────────────────────────────────────
+
+  // ── Private helpers ────────────────────────────────────────────────────────
 
   private safeDeleteFile(filePath: string): void {
     try {
@@ -181,7 +201,5 @@ async uploadResume(
     }
   }
 }
-}
-
 
 export const resumeService = new ResumeService();
