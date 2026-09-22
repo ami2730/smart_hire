@@ -151,5 +151,51 @@ export class AdminService {
   /**
    * List all recruiters across the platform.
    */
+  async listRecruiters(query: { page?: number; limit?: number; search?: string }) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.UserWhereInput = {
+      role: Role.RECRUITER,
+      ...(query.search && {
+        OR: [
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [recruiters, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          isActive: true,
+          createdAt: true,
+          _count: {
+            select: {
+              jobs: true,
+            },
+          },
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return {
+      recruiters,
+      pagination: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  /**
+   * List all platform jobs for administration.
+   */
  
 export const adminService = new AdminService();
