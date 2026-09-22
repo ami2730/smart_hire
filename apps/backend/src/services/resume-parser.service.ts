@@ -195,5 +195,7 @@ export class ResumeParserService {
 
       (sections[currentSection] ?? (sections[currentSection] = [])).push(line);
     }
+// 2. Extract Skills
+    const extractedSkillsSet = new Set<string>();
 
 export const resumeParserService = new ResumeParserService();
