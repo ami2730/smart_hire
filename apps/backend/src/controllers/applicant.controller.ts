@@ -19,6 +19,13 @@ export class ApplicantController {
       next(error);
     }
   }
+  async getResumes(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const applicantController = new ApplicantController();
