@@ -37,6 +37,16 @@ export class RankingService {
       pagination,
     };
   }
+  /**
+   * Trigger batch AI screening and deterministic ranking for all (or specified) applications of a job.
+   * Calls the Python ML service batch ranking endpoint, persists multi-criteria scores,
+   * updates application statuses, and returns the updated leaderboard.
+   */
+  async triggerBatchRanking(jobId: string, options: BatchRankBodyInput, user: AuthUser) {
+    const job = await jobRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundError('Job not found');
+    }
 }
 
 export const rankingService = new RankingService();
