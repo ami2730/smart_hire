@@ -27,3 +27,7 @@ router.patch(
   validateBody(updateUserStatusSchema),
   adminController.updateUserStatus
 );
+
+// Specific role directories
+router.get('/applicants', adminController.getApplicants);
+router.get('/recruiters', adminController.getRecruiters);
