@@ -500,5 +500,17 @@ onst nextLine = expLines[i + 1] ?? '';
     const finalSummary = candidate.summary || localData.summary || mlData?.sections?.summary || null;
     const finalLocation = candidate.location || localData.location || null;
     const finalPhone = candidate.phone || localData.phone || null;
-
+ // 3. Persist in database
+    await prisma.$transaction(async (tx) => {
+      // A. Update Candidate basic info if currently empty
+      if ((finalLocation && !candidate.location) || (finalPhone && !candidate.phone) || (finalSummary && !candidate.summary)) {
+        await tx.candidate.update({
+          where: { id: candidateId },
+          data: {
+            location: finalLocation || undefined,
+            phone: finalPhone || undefined,
+            summary: finalSummary || undefined,
+          },
+        });
+      }
 export const resumeParserService = new ResumeParserService();
