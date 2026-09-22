@@ -145,7 +145,14 @@ async uploadResume(
       'Resume deleted'
     );
   }
+// ── Mark processing status (used by ML service integration in Phase 7) ─────
 
+  async markProcessing(id: string) {
+    const resume = await resumeRepository.findById(id);
+    if (!resume) throw new NotFoundError('Resume not found');
+
+    return resumeRepository.updateStatus(id, ResumeProcessingStatus.PROCESSING);
+  }
 }
 
 
