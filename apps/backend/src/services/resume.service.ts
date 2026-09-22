@@ -18,7 +18,21 @@ interface PaginationMeta {
 }
 
 // ── Safe resume response shape ────────────────────────────────────────────────
-
+function formatResume(resume: {
+  id: string;
+  candidateId: string;
+  originalFileName: string;
+  storedFileName: string;
+  mimeType: string;
+  fileSize: number;
+  processingStatus: ResumeProcessingStatus;
+  uploadedAt: Date;
+  processedAt: Date | null;
+  extractedText?: string | null;
+  candidate?: { id: string; name: string; email: string } | null;
+}) {
+  
+}
 
 
 export const resumeService = new ResumeService();
