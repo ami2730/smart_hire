@@ -28,6 +28,15 @@ export const getReadiness = async (_req: Request, res: Response): Promise<Respon
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    
+    return sendError(
+      res,
+      503,
+      ErrorCodes.DATABASE_ERROR,
+      'Service is not ready: database connection check failed',
+      {
+        server: 'ok',
+        database: 'unreachable',
+      }
+    );
   }
 };
