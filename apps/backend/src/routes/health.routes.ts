@@ -4,5 +4,6 @@ import { getHealth, getReadiness } from '../controllers/health.controller';
 const router = Router();
 
 router.get('/', getHealth);
+router.get('/ready', getReadiness);
 
 export const healthRoutes = router;
