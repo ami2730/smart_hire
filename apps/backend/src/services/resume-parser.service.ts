@@ -486,4 +486,19 @@ onst nextLine = expLines[i + 1] ?? '';
         });
       }
     }
+    // Merge education
+    const finalEducation = [...localData.education];
+    if (finalEducation.length === 0 && mlData?.education && Array.isArray(mlData.education)) {
+      for (const eduStr of mlData.education) {
+        finalEducation.push({
+          degree: String(eduStr),
+          institution: 'Accredited Institution',
+        });
+      }
+    }
+
+    const finalSummary = candidate.summary || localData.summary || mlData?.sections?.summary || null;
+    const finalLocation = candidate.location || localData.location || null;
+    const finalPhone = candidate.phone || localData.phone || null;
+
 export const resumeParserService = new ResumeParserService();
