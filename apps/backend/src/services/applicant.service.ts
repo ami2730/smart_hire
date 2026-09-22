@@ -100,6 +100,15 @@ export class ApplicantService {
     }
     return candidate;
   }
+  async updateProfile(
+    userId: string,
+    data: {
+      name?: string;
+      phone?: string;
+      location?: string;
+      summary?: string;
+    }
+  )
 
 }
 
