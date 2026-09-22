@@ -13,7 +13,7 @@ import { RankingQueryInput, BatchRankBodyInput } from '../schemas/ranking.schema
 import { AuthUser } from './application.service';
 
 export class RankingService {
-   /**
+  /**
    * Get ranked candidates for a specific job with filtering, sorting, and pagination.
    */
   async getJobRankings(jobId: string, query: RankingQueryInput, user: AuthUser) {
@@ -21,13 +21,16 @@ export class RankingService {
     if (!job) {
       throw new NotFoundError('Job not found');
     }
- // Recruiter authorization check
+
+    // Recruiter authorization check
     if (user.role === Role.RECRUITER && job.recruiterId !== user.id) {
       throw new AuthorizationError('You can only view candidate rankings for jobs you own');
     }
+
     const { candidates, total } = await rankingRepository.getRankingsForJob(jobId, query);
     const pagination = buildPaginationMeta(total, query.page, query.limit);
- return {
+
+    return {
       job: {
         id: job.id,
         title: job.title,
@@ -37,6 +40,7 @@ export class RankingService {
       pagination,
     };
   }
+
   /**
    * Trigger batch AI screening and deterministic ranking for all (or specified) applications of a job.
    * Calls the Python ML service batch ranking endpoint, persists multi-criteria scores,
@@ -47,13 +51,15 @@ export class RankingService {
     if (!job) {
       throw new NotFoundError('Job not found');
     }
-     // Recruiter authorization check
+
+    // Recruiter authorization check
     if (user.role === Role.RECRUITER && job.recruiterId !== user.id) {
       throw new AuthorizationError('You can only trigger ranking for jobs you own');
     }
 
     const { force, candidateIds } = options;
-// Fetch applications for this job
+
+    // Fetch applications for this job
     const { applications } = await applicationRepository.findMany({
       page: 1,
       limit: 100, // Process batch of applications
@@ -61,7 +67,8 @@ export class RankingService {
       sortBy: 'appliedAt',
       sortOrder: 'desc',
     });
- // Filter applications eligible for ranking
+
+    // Filter applications eligible for ranking
     let eligibleApps = applications;
     if (candidateIds && candidateIds.length > 0) {
       eligibleApps = eligibleApps.filter((a) => candidateIds.includes(a.candidate.id));
@@ -70,6 +77,7 @@ export class RankingService {
       // Only process applications not already screened
       eligibleApps = eligibleApps.filter((a) => a.status !== ApplicationStatus.SCREENED);
     }
+
     if (eligibleApps.length === 0) {
       // No new applications to evaluate; return existing rankings
       const existing = await this.getJobRankings(
@@ -82,24 +90,28 @@ export class RankingService {
         },
         user
       );
-        return {
+
+      return {
         ...existing,
         message: 'No pending applications found to evaluate. All candidates already screened.',
       };
     }
-     // Prepare job specifications for ML service
+
+    // Prepare job specifications for ML service
     const jobReqs = job.requirements;
     const requiredSkills = jobReqs?.requiredSkills || [];
     const minYears = job.minimumExperienceYears || jobReqs?.minimumExperienceYears || 0;
     const educationReqs = jobReqs?.educationRequirements ? [jobReqs.educationRequirements] : [];
- // Prepare candidate inputs
+
+    // Prepare candidate inputs
     const candidateInputs = [];
     const appMap = new Map<string, string>(); // candidateId -> applicationId
 
     for (const app of eligibleApps) {
       const fullApp = await applicationRepository.findById(app.id);
       if (!fullApp) continue;
- appMap.set(fullApp.candidateId, fullApp.id);
+
+      appMap.set(fullApp.candidateId, fullApp.id);
 
       // Resolve resume text
       let resumeText = fullApp.resume?.extractedText || '';
@@ -119,7 +131,8 @@ export class RankingService {
           logger.warn({ resumeId: fullApp.resume.id, err }, 'Failed to extract resume text');
         }
       }
-       const skills = fullApp.candidate.skills.map((s) => s.skill.name);
+
+      const skills = fullApp.candidate.skills.map((s) => s.skill.name);
       const experience = fullApp.candidate.experience.map(
         (e) =>
           `${e.jobTitle} at ${e.company}${e.years ? ` (${e.years} years)` : ''}${
@@ -143,6 +156,7 @@ export class RankingService {
       { jobId, candidateCount: candidateInputs.length },
       'Triggering batch candidate ranking via ML service'
     );
+
     // Call ML service rankCandidates()
     const mlRankResult = await mlService.rankCandidates({
       job_id: jobId,
@@ -155,7 +169,16 @@ export class RankingService {
       },
       candidates: candidateInputs,
     });
-// Persist screening results for each candidate in the batch
+
+    // Map recommendation strings to Prisma enum
+    const recommendationMap: Record<string, ScreeningRecommendation> = {
+      strong_match: ScreeningRecommendation.STRONG_MATCH,
+      good_match: ScreeningRecommendation.GOOD_MATCH,
+      moderate_match: ScreeningRecommendation.MODERATE_MATCH,
+      low_match: ScreeningRecommendation.LOW_MATCH,
+    };
+
+    // Persist screening results for each candidate in the batch
     for (const ranked of mlRankResult.candidates) {
       const applicationId = appMap.get(ranked.candidate_id);
       if (!applicationId) continue;
@@ -191,6 +214,18 @@ export class RankingService {
       'Batch candidate ranking completed and persisted'
     );
 
+    // Fetch and return the fresh rankings
+    return this.getJobRankings(
+      jobId,
+      {
+        page: 1,
+        limit: 10,
+        sortBy: 'matchScore',
+        sortOrder: 'desc',
+      },
+      user
+    );
+  }
 }
 
 export const rankingService = new RankingService();
