@@ -92,6 +92,13 @@ export class RankingService {
     const requiredSkills = jobReqs?.requiredSkills || [];
     const minYears = job.minimumExperienceYears || jobReqs?.minimumExperienceYears || 0;
     const educationReqs = jobReqs?.educationRequirements ? [jobReqs.educationRequirements] : [];
+ // Prepare candidate inputs
+    const candidateInputs = [];
+    const appMap = new Map<string, string>(); // candidateId -> applicationId
+
+    for (const app of eligibleApps) {
+      const fullApp = await applicationRepository.findById(app.id);
+      if (!fullApp) continue;
 
 }
 
