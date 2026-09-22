@@ -25,6 +25,9 @@ export class RankingService {
     if (user.role === Role.RECRUITER && job.recruiterId !== user.id) {
       throw new AuthorizationError('You can only view candidate rankings for jobs you own');
     }
+    const { candidates, total } = await rankingRepository.getRankingsForJob(jobId, query);
+    const pagination = buildPaginationMeta(total, query.page, query.limit);
+
 }
 
 export const rankingService = new RankingService();
