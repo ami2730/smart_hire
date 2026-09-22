@@ -21,7 +21,10 @@ export class RankingService {
     if (!job) {
       throw new NotFoundError('Job not found');
     }
-
+ // Recruiter authorization check
+    if (user.role === Role.RECRUITER && job.recruiterId !== user.id) {
+      throw new AuthorizationError('You can only view candidate rankings for jobs you own');
+    }
 }
 
 export const rankingService = new RankingService();
