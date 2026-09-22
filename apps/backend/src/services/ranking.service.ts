@@ -53,6 +53,14 @@ export class RankingService {
     }
 
     const { force, candidateIds } = options;
+// Fetch applications for this job
+    const { applications } = await applicationRepository.findMany({
+      page: 1,
+      limit: 100, // Process batch of applications
+      jobId,
+      sortBy: 'appliedAt',
+      sortOrder: 'desc',
+    });
 
 }
 
