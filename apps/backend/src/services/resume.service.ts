@@ -31,7 +31,21 @@ function formatResume(resume: {
   extractedText?: string | null;
   candidate?: { id: string; name: string; email: string } | null;
 }) {
-  
+  return {
+    id: resume.id,
+    candidateId: resume.candidateId,
+    originalFileName: resume.originalFileName,
+    mimeType: resume.mimeType,
+    fileSize: resume.fileSize,
+    processingStatus: resume.processingStatus,
+    uploadedAt: resume.uploadedAt,
+    processedAt: resume.processedAt,
+    // Only include extractedText if explicitly present (avoid leaking by default)
+    ...(resume.extractedText !== undefined
+      ? { extractedText: resume.extractedText }
+      : {}),
+    candidate: resume.candidate ?? null,
+  };
 }
 
 
