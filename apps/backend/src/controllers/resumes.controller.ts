@@ -24,6 +24,12 @@ class ResumesController {
       next(error);
     }
   };
+  // GET /api/v1/candidates/:candidateId/resumes
+  list = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> =>
 
 export const resumesController = new ResumesController();
   
