@@ -85,7 +85,18 @@ async uploadResume(
       query
     );
     const totalPages = Math.ceil(total / query.limit);
-
+ return {
+      resumes: resumes.map(formatResume),
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages,
+        hasNext: query.page < totalPages,
+        hasPrev: query.page > 1,
+      },
+    };
+  }
 }
 
 
