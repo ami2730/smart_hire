@@ -47,7 +47,8 @@ export class ApplicantController {
   }
   async deleteResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-     
+      const id = req.params.id as string;
+      await applicantService.deleteResume(req.user!.id, id);
       res.status(200).json({ success: true, message: 'Resume deleted successfully' });
     } catch (error) {
       next(error);
