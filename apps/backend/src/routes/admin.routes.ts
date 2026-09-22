@@ -18,3 +18,12 @@ const idParamSchema = z.object({
 const updateUserStatusSchema = z.object({
   isActive: z.boolean({ required_error: 'isActive status is required' }),
 });
+
+// Users management
+router.get('/users', adminController.getUsers);
+router.patch(
+  '/users/:id/status',
+  validateParams(idParamSchema),
+  validateBody(updateUserStatusSchema),
+  adminController.updateUserStatus
+);
