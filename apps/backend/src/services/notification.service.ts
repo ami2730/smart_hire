@@ -220,6 +220,20 @@ class NotificationService {
         orderBy: { createdAt: 'desc' },
         take: 5,
       });
+ for (const job of recentJobs) {
+        const notifId = `admin-job-${job.id}`;
+        notifications.push({
+          id: notifId,
+          title: 'Job Position Created',
+          message: `"${job.title}" created by ${job.recruiter?.name || 'Recruiter'}.`,
+          type: 'INFO',
+          category: 'JOB',
+          timestamp: job.createdAt.toISOString(),
+          read: readSet.has(notifId),
+          link: `/jobs/${job.id}`,
+        });
+      }
+    }
 
 
     }
