@@ -90,7 +90,9 @@ export class ApplicantController {
   }
   async withdrawApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-    
+     const id = req.params.id as string;
+      const application = await applicantService.withdrawApplication(req.user!.id, id);
+     
   }
 }
 
