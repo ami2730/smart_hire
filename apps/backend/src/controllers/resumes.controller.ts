@@ -85,7 +85,7 @@ class ResumesController {
       await resumeService.deleteResume(req.params['id']!);
       sendSuccess(res, { message: 'Resume deleted successfully' });
     } catch (error) {
-      
+     next(error); 
     }
   };
 }
