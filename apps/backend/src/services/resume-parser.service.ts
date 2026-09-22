@@ -259,5 +259,14 @@ export class ResumeParserService {
           /\b(engineer|developer|designer|manager|architect|lead|intern|consultant|analyst|specialist|administrator)\b/i.test(
             line
           );
+if (isJobTitleCandidate && (!currentJob || currentJob.description.length > 0)) {
+          if (currentJob && currentJob.jobTitle) {
+            experience.push({
+              jobTitle: currentJob.jobTitle,
+              company: currentJob.company || 'Organization',
+              description: currentJob.description.join(' ').trim() || undefined,
+              years: this.estimateYears(currentJob.dates),
+            });
+          }
 
 export const resumeParserService = new ResumeParserService();
