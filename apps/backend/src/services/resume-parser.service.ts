@@ -531,5 +531,22 @@ onst nextLine = expLines[i + 1] ?? '';
             },
           });
         }
+  // Link to CandidateSkill
+        await tx.candidateSkill.upsert({
+          where: {
+            candidateId_skillId: {
+              candidateId,
+              skillId: skill.id,
+            },
+          },
+          create: {
+            candidateId,
+            skillId: skill.id,
+            proficiencyLevel: 'INTERMEDIATE',
+            yearsOfExperience: localData.experience[0]?.years || 1.0,
+          },
+          update: {},
+        });
+      }
 
 export const resumeParserService = new ResumeParserService();
