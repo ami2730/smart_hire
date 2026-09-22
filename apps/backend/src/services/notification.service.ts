@@ -234,6 +234,18 @@ class NotificationService {
         });
       }
     }
+// Sort descending by timestamp
+    notifications.sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    const unreadCount = notifications.filter((n) => !n.read).length;
+
+    return {
+      notifications,
+      unreadCount,
+    };
+  }
 
 
     }
