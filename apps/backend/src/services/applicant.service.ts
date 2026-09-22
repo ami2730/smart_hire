@@ -13,7 +13,7 @@ import { logger } from '../config/logger';
 import { resumeParserService } from './resume-parser.service';
 
 export class ApplicantService {
-    /**
+  /**
    * Helper to resolve candidate profile for the authenticated applicant user.
    */
   async getCandidateByUserId(userId: string) {
@@ -42,7 +42,8 @@ export class ApplicantService {
         },
       },
     });
-     if (!candidate) {
+
+    if (!candidate) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (user) {
         const existing = await prisma.candidate.findFirst({
@@ -53,7 +54,7 @@ export class ApplicantService {
             ],
           },
         });
-         if (existing) {
+        if (existing) {
           candidate = await prisma.candidate.update({
             where: { id: existing.id },
             data: { userId: user.id, name: user.name },
@@ -71,7 +72,7 @@ export class ApplicantService {
               },
             },
           });
-          } else {
+        } else {
           candidate = await prisma.candidate.create({
             data: {
               userId: user.id,
@@ -95,11 +96,46 @@ export class ApplicantService {
         }
       }
     }
-     if (!candidate) {
+
+    if (!candidate) {
       throw new NotFoundError('Applicant profile not found');
     }
+
     return candidate;
   }
+
+  /**
+   * Get full applicant profile.
+   */
+  async getProfile(userId: string) {
+    let candidate = await this.getCandidateByUserId(userId);
+
+    // If candidate has resumes with extracted text but 0 skills, auto-extract once to backfill
+    if (candidate.skills.length === 0 && candidate.resumes.length > 0) {
+      const defaultResume = candidate.resumes.find((r) => r.isDefault) || candidate.resumes[0];
+      if (defaultResume && defaultResume.extractedText) {
+        try {
+          const fileBuffer = fs.existsSync(defaultResume.filePath) ? fs.readFileSync(defaultResume.filePath) : null;
+          await resumeParserService.parseAndSyncProfile(
+            candidate.id,
+            defaultResume.extractedText,
+            fileBuffer,
+            defaultResume.originalFileName
+          );
+          // Refetch updated candidate profile with newly synced relations
+          candidate = await this.getCandidateByUserId(userId);
+        } catch (err) {
+          logger.warn({ err, candidateId: candidate.id }, 'On-demand profile auto-sync failed');
+        }
+      }
+    }
+
+    return candidate;
+  }
+
+  /**
+   * Update applicant personal profile.
+   */
   async updateProfile(
     userId: string,
     data: {
@@ -108,7 +144,7 @@ export class ApplicantService {
       location?: string;
       summary?: string;
     }
-  ){
+  ) {
     const candidate = await this.getCandidateByUserId(userId);
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -118,6 +154,7 @@ export class ApplicantService {
           data: { name: data.name },
         });
       }
+
       return tx.candidate.update({
         where: { id: candidate.id },
         data: {
@@ -134,7 +171,8 @@ export class ApplicantService {
         },
       });
     });
-await auditService.log({
+
+    await auditService.log({
       action: 'APPLICANT_PROFILE_UPDATE',
       resource: 'CANDIDATE',
       resourceId: candidate.id,
@@ -143,7 +181,8 @@ await auditService.log({
 
     return updated;
   }
-**
+
+  /**
    * List applicant's uploaded resumes.
    */
   async getResumes(userId: string) {
@@ -153,6 +192,7 @@ await auditService.log({
       orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }],
     });
   }
+
   /**
    * Upload a new resume for the applicant.
    */
@@ -167,7 +207,7 @@ await auditService.log({
       buffer?: Buffer;
     },
     isDefault = false
-  ){
+  ) {
     const candidate = await this.getCandidateByUserId(userId);
 
     const resumeCount = await prisma.resume.count({
@@ -183,7 +223,8 @@ await auditService.log({
         data: { isDefault: false },
       });
     }
-     let extractedText: string | null = null;
+
+    let extractedText: string | null = null;
     let processingStatus: ResumeProcessingStatus = ResumeProcessingStatus.UPLOADED;
 
     try {
@@ -205,6 +246,7 @@ await auditService.log({
         'ML text extraction deferred or failed during applicant resume upload'
       );
     }
+
     const resume = await prisma.resume.create({
       data: {
         candidateId: candidate.id,
@@ -219,6 +261,7 @@ await auditService.log({
         processedAt: extractedText ? new Date() : null,
       },
     });
+
     if (extractedText) {
       try {
         const fileBuffer = file.buffer || (fs.existsSync(file.path) ? fs.readFileSync(file.path) : null);
@@ -232,7 +275,8 @@ await auditService.log({
         logger.warn({ err: parseErr, candidateId: candidate.id }, 'Auto-extraction of profile data from resume failed');
       }
     }
-     await auditService.log({
+
+    await auditService.log({
       action: 'RESUME_UPLOAD',
       resource: 'RESUME',
       resourceId: resume.id,
@@ -242,7 +286,8 @@ await auditService.log({
 
     return resume;
   }
-   /**
+
+  /**
    * Explicitly parse/sync candidate profile from a resume.
    */
   async syncResumeToProfile(userId: string, resumeId?: string) {
@@ -254,7 +299,8 @@ await auditService.log({
     if (!targetResume) {
       throw new NotFoundError('No resume found to extract profile data from');
     }
-let text = targetResume.extractedText;
+
+    let text = targetResume.extractedText;
     let fileBuffer: Buffer | null = null;
     if (fs.existsSync(targetResume.filePath)) {
       fileBuffer = fs.readFileSync(targetResume.filePath);
@@ -274,7 +320,8 @@ let text = targetResume.extractedText;
         });
       }
     }
-if (!text) {
+
+    if (!text) {
       throw new ValidationError('Could not extract text from the selected resume file');
     }
 
@@ -288,7 +335,8 @@ if (!text) {
     const updated = await this.getCandidateByUserId(userId);
     return { profile: updated, extracted };
   }
-/**
+
+  /**
    * Delete an applicant's resume.
    */
   async deleteResume(userId: string, resumeId: string) {
@@ -316,6 +364,7 @@ if (!text) {
         logger.warn({ path: resume.filePath, err }, 'Failed to delete resume file from disk');
       }
     }
+
     await auditService.log({
       action: 'RESUME_DELETE',
       resource: 'RESUME',
@@ -323,6 +372,7 @@ if (!text) {
       userId,
     });
   }
+
   /**
    * Submit an application for a published job.
    */
@@ -377,7 +427,8 @@ if (!text) {
       const defaultResume = (candidate.resumes || []).find((r: any) => r.isDefault) || candidate.resumes?.[0];
       effectiveResumeId = defaultResume ? defaultResume.id : undefined;
     }
- return applicationService.createApplication({
+
+    return applicationService.createApplication({
       candidateId: candidate.id,
       jobId: data.jobId,
       resumeId: effectiveResumeId,
@@ -385,7 +436,8 @@ if (!text) {
       source: 'REGISTERED',
     });
   }
-   /**
+
+  /**
    * List applicant's submitted applications.
    */
   async getApplications(userId: string) {
@@ -426,7 +478,8 @@ if (!text) {
       orderBy: { appliedAt: 'desc' },
     });
   }
-/**
+
+  /**
    * Get single application details for the authenticated applicant.
    */
   async getApplicationById(userId: string, applicationId: string) {
@@ -474,7 +527,8 @@ if (!text) {
 
     return application;
   }
-/**
+
+  /**
    * Withdraw an application.
    */
   async withdrawApplication(userId: string, applicationId: string) {
