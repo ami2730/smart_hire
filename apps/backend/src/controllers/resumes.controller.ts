@@ -40,5 +40,19 @@ class ResumesController {
       next(error);
     }
   };
+   // GET /api/v1/resumes/:id
+  getById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const resume = await resumeService.getResume(req.params['id']!);
+      sendSuccess(res, { resume });
+    } catch (error) {
+      next(error);
+    }
+  };
+
 export const resumesController = new ResumesController();
   
