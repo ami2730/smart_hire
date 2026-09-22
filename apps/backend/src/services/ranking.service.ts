@@ -143,6 +143,19 @@ export class RankingService {
       { jobId, candidateCount: candidateInputs.length },
       'Triggering batch candidate ranking via ML service'
     );
+    // Call ML service rankCandidates()
+    const mlRankResult = await mlService.rankCandidates({
+      job_id: jobId,
+      job: {
+        title: job.title,
+        description: job.description,
+        required_skills: requiredSkills,
+        minimum_experience_years: minYears,
+        education_requirements: educationReqs,
+      },
+      candidates: candidateInputs,
+    });
+
 }
 
 export const rankingService = new RankingService();
