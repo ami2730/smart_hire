@@ -11,7 +11,8 @@ export class ApplicantController {
       next(error);
     }
   }
-   async updateProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
+
+  async updateProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const profile = await applicantService.updateProfile(req.user!.id, req.body);
       res.status(200).json({ success: true, data: { profile } });
@@ -19,14 +20,16 @@ export class ApplicantController {
       next(error);
     }
   }
+
   async getResumes(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-     const resumes = await applicantService.getResumes(req.user!.id);
-      res.status(200).json({ success: true, data: { resumes } }); 
+      const resumes = await applicantService.getResumes(req.user!.id);
+      res.status(200).json({ success: true, data: { resumes } });
     } catch (error) {
       next(error);
     }
   }
+
   async uploadResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.file) {
@@ -45,6 +48,7 @@ export class ApplicantController {
       next(error);
     }
   }
+
   async deleteResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = req.params.id as string;
@@ -54,7 +58,8 @@ export class ApplicantController {
       next(error);
     }
   }
-   async syncResume(req: Request, res: Response, next: NextFunction): Promise<void> {
+
+  async syncResume(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const resumeId = req.body?.resumeId as string | undefined;
       const result = await applicantService.syncResumeToProfile(req.user!.id, resumeId);
@@ -63,6 +68,7 @@ export class ApplicantController {
       next(error);
     }
   }
+
   async apply(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const application = await applicantService.applyForJob(req.user!.id, req.body);
@@ -71,7 +77,8 @@ export class ApplicantController {
       next(error);
     }
   }
-   async getApplications(req: Request, res: Response, next: NextFunction): Promise<void> {
+
+  async getApplications(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const applications = await applicantService.getApplications(req.user!.id);
       res.status(200).json({ success: true, data: { applications } });
@@ -79,6 +86,7 @@ export class ApplicantController {
       next(error);
     }
   }
+
   async getApplicationById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = req.params.id as string;
@@ -88,18 +96,19 @@ export class ApplicantController {
       next(error);
     }
   }
+
   async withdrawApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-     const id = req.params.id as string;
+      const id = req.params.id as string;
       const application = await applicantService.withdrawApplication(req.user!.id, id);
-    res.status(200).json({
+      res.status(200).json({
         success: true,
         message: 'Application withdrawn successfully',
         data: { application },
       });
     } catch (error) {
       next(error);
-    }   
+    }
   }
 }
 
