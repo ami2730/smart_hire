@@ -14,6 +14,18 @@ export interface AppNotification {
 }
 
 class NotificationService {
+    // In-memory set of read notification IDs per user ID
+  private userReadNotifications = new Map<string, Set<string>>();
+
+  private getReadSet(userId: string): Set<string> {
+    let set = this.userReadNotifications.get(userId);
+    if (!set) {
+      set = new Set<string>();
+      this.userReadNotifications.set(userId, set);
+    }
+    return set;
+  }
+
 
     }
 
