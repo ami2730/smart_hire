@@ -53,6 +53,27 @@ class ResumesController {
       next(error);
     }
   };
+ // GET /api/v1/resumes/:id/download
+  download = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const { filePath, originalFileName, mimeType } =
+        await resumeService.getResumeFilePath(req.params['id']!);
 
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${encodeURIComponent(originalFileName)}"`
+      );
+      res.sendFile(filePath, (err) => {
+        if (err) next(err);
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 export const resumesController = new ResumesController();
   
