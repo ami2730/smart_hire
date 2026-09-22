@@ -14,7 +14,7 @@ export interface AppNotification {
 }
 
 class NotificationService {
-    // In-memory set of read notification IDs per user ID
+  // In-memory set of read notification IDs per user ID
   private userReadNotifications = new Map<string, Set<string>>();
 
   private getReadSet(userId: string): Set<string> {
@@ -25,7 +25,8 @@ class NotificationService {
     }
     return set;
   }
- /**
+
+  /**
    * Fetch live, role-specific notifications for the authenticated user.
    */
   async getNotifications(user: AuthUser): Promise<{
@@ -57,7 +58,8 @@ class NotificationService {
           },
         },
       });
-       if (candidate) {
+
+      if (candidate) {
         // 1. Application submissions & statuses
         for (const app of candidate.applications) {
           const notifId = `app-sub-${app.id}`;
@@ -71,7 +73,8 @@ class NotificationService {
             read: readSet.has(notifId),
             link: '/applications',
           });
-           // 2. Screening results
+
+          // 2. Screening results
           const latestScreen = app.screeningResults[0];
           if (latestScreen) {
             const screenNotifId = `app-screen-${latestScreen.id}`;
@@ -87,6 +90,7 @@ class NotificationService {
             });
           }
         }
+
         // 3. Resumes
         for (const res of candidate.resumes) {
           const resNotifId = `res-${res.id}`;
@@ -102,7 +106,7 @@ class NotificationService {
           });
         }
       }
-     } else if (user.role === Role.RECRUITER) {
+    } else if (user.role === Role.RECRUITER) {
       // 1. Recent applications
       const recentApps = await prisma.application.findMany({
         where: {
@@ -115,7 +119,8 @@ class NotificationService {
         orderBy: { appliedAt: 'desc' },
         take: 15,
       });
-       // If recruiter has no owned jobs yet, also pull global recent applications
+
+      // If recruiter has no owned jobs yet, also pull global recent applications
       const appsToUse =
         recentApps.length > 0
           ? recentApps
@@ -128,7 +133,7 @@ class NotificationService {
               take: 10,
             });
 
-            for (const app of appsToUse) {
+      for (const app of appsToUse) {
         const notifId = `rec-app-${app.id}`;
         notifications.push({
           id: notifId,
@@ -141,6 +146,7 @@ class NotificationService {
           link: `/applications/${app.id}`,
         });
       }
+
       // 2. Recent screening evaluations
       const recentScreenings = await prisma.screeningResult.findMany({
         include: {
@@ -168,7 +174,8 @@ class NotificationService {
           link: `/applications/${scr.applicationId}/screening`,
         });
       }
-       // 3. Recent candidate uploads
+
+      // 3. Recent candidate uploads
       const recentResumes = await prisma.resume.findMany({
         include: {
           candidate: { select: { id: true, name: true } },
@@ -199,6 +206,7 @@ class NotificationService {
         orderBy: { timestamp: 'desc' },
         take: 15,
       });
+
       for (const log of auditLogs) {
         const notifId = `admin-audit-${log.id}`;
         notifications.push({
@@ -212,7 +220,8 @@ class NotificationService {
           link: '/settings',
         });
       }
-       // 2. Recent job postings
+
+      // 2. Recent job postings
       const recentJobs = await prisma.job.findMany({
         include: {
           recruiter: { select: { name: true } },
@@ -220,7 +229,8 @@ class NotificationService {
         orderBy: { createdAt: 'desc' },
         take: 5,
       });
- for (const job of recentJobs) {
+
+      for (const job of recentJobs) {
         const notifId = `admin-job-${job.id}`;
         notifications.push({
           id: notifId,
@@ -234,7 +244,8 @@ class NotificationService {
         });
       }
     }
-// Sort descending by timestamp
+
+    // Sort descending by timestamp
     notifications.sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
@@ -246,7 +257,8 @@ class NotificationService {
       unreadCount,
     };
   }
-/**
+
+  /**
    * Mark all notifications as read for the user.
    */
   async markAllAsRead(user: AuthUser): Promise<{ markedCount: number }> {
@@ -257,13 +269,14 @@ class NotificationService {
     }
     return { markedCount: notifications.length };
   }
-/**
+
+  /**
    * Mark a single notification as read.
    */
   async markAsRead(user: AuthUser, notificationId: string): Promise<void> {
     const readSet = this.getReadSet(user.id);
     readSet.add(notificationId);
   }
-    }
+}
 
 export const notificationService = new NotificationService();
