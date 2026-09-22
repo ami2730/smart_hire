@@ -268,5 +268,30 @@ if (isJobTitleCandidate && (!currentJob || currentJob.description.length > 0)) {
               years: this.estimateYears(currentJob.dates),
             });
           }
+onst nextLine = expLines[i + 1] ?? '';
+          const companyGuess =
+            nextLine && !isDateLine && !/@/.test(nextLine) && nextLine.length < 50
+              ? nextLine
+              : 'Independent / Freelance';
+
+          currentJob = {
+            jobTitle: line ?? '',
+            company: companyGuess,
+            description: [],
+          };
+          if (companyGuess === nextLine) {
+            i++; // consume company line
+          }
+          continue;
+        }
+
+        if (currentJob) {
+          if (isDateLine && !currentJob.dates) {
+            currentJob.dates = line;
+          } else if (!isDateLine && !isLocationLine && !isEmailLine) {
+            currentJob.description.push(line);
+          }
+        }
+      }
 
 export const resumeParserService = new ResumeParserService();
