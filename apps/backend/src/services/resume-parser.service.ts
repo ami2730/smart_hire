@@ -302,5 +302,73 @@ onst nextLine = expLines[i + 1] ?? '';
         });
       }
     }
+    / 4. Extract Education
+    const education: ExtractedResumeData['education'] = [];
+    const eduLines =
+      sections.education && sections.education.length > 0
+        ? sections.education
+        : lines;
+
+    const INSTITUTION_PATTERN =
+      /\b(university|college|institute|academy|polytechnic|school\s+of)\b/i;
+    const FIELD_PATTERN =
+      /\b(computer\s+science|software\s+engineering|information\s+technology|computer\s+engineering|electrical\s+engineering|data\s+science|information\s+systems|engineering|science|technology|mathematics|business)\b/i;
+
+    let currentEdu: { degree: string; field?: string; institution: string } | null = null;
+
+    for (let i = 0; i < eduLines.length; i++) {
+      const line = eduLines[i] ?? '';
+      let lineDegree = '';
+      for (const pattern of DEGREE_PATTERNS) {
+        const match = line.match(pattern);
+        if (match) {
+          lineDegree = line;
+          break;
+        }
+      }
+
+      const hasInstitution = INSTITUTION_PATTERN.test(line);
+      const fieldMatch = line.match(FIELD_PATTERN);
+
+      if (lineDegree) {
+        if (currentEdu) {
+          education.push(currentEdu);
+        }
+
+        let instGuess = hasInstitution ? line : '';
+        const extractedField = fieldMatch ? fieldMatch[0] : undefined;
+
+        if (!instGuess && i + 1 < eduLines.length) {
+          const nextLine = eduLines[i + 1] ?? '';
+          if (INSTITUTION_PATTERN.test(nextLine)) {
+            instGuess = nextLine;
+          }
+        }
+
+        currentEdu = {
+          degree: lineDegree,
+          field: extractedField,
+          institution: instGuess || 'Accredited University / College',
+        };
+      } else if (currentEdu) {
+        if (hasInstitution && currentEdu.institution.includes('Accredited')) {
+          currentEdu.institution = line;
+        }
+        if (!currentEdu.field && fieldMatch) {
+          currentEdu.field = fieldMatch[0];
+        }
+      } else if (sections.education && sections.education.length > 0 && hasInstitution) {
+        currentEdu = {
+          degree: 'University Degree / Qualification',
+          field: fieldMatch ? fieldMatch[0] : undefined,
+          institution: line,
+        };
+      }
+    }
+
+    if (currentEdu) {
+      education.push(currentEdu);
+    }
+
 
 export const resumeParserService = new ResumeParserService();
