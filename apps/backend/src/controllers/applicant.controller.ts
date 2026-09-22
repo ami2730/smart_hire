@@ -54,6 +54,15 @@ export class ApplicantController {
       next(error);
     }
   }
+   async syncResume(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const resumeId = req.body?.resumeId as string | undefined;
+      const result = await applicantService.syncResumeToProfile(req.user!.id, resumeId);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const applicantController = new ApplicantController();
