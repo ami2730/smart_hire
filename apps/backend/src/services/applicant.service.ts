@@ -288,7 +288,34 @@ if (!text) {
     const updated = await this.getCandidateByUserId(userId);
     return { profile: updated, extracted };
   }
+/**
+   * Delete an applicant's resume.
+   */
+  async deleteResume(userId: string, resumeId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+    const resume = await prisma.resume.findUnique({
+      where: { id: resumeId },
+    });
 
+    if (!resume) {
+      throw new NotFoundError('Resume not found');
+    }
+
+    if (resume.candidateId !== candidate.id) {
+      throw new AuthorizationError('Forbidden: you do not own this resume');
+    }
+
+    await prisma.resume.delete({
+      where: { id: resumeId },
+    });
+
+    if (fs.existsSync(resume.filePath)) {
+      try {
+        fs.unlinkSync(resume.filePath);
+      } catch (err) {
+        logger.warn({ path: resume.filePath, err }, 'Failed to delete resume file from disk');
+      }
+    }
 }
 
 export const applicantService = new ApplicantService();
