@@ -30,6 +30,7 @@ router.get(
   validateQuery(resumeQuerySchema),
   resumesController.list
 );
+
 // ── Resume-level routes ───────────────────────────────────────────────────────
 
 // GET /api/v1/resumes/:id — get resume metadata
@@ -39,6 +40,7 @@ router.get(
   validateParams(resumeIdParamSchema),
   resumesController.getById
 );
+
 // GET /api/v1/resumes/:id/download — download the actual file
 router.get(
   '/resumes/:id/download',
@@ -46,6 +48,7 @@ router.get(
   validateParams(resumeIdParamSchema),
   resumesController.download
 );
+
 // DELETE /api/v1/resumes/:id — delete resume record + file
 router.delete(
   '/resumes/:id',
@@ -53,4 +56,5 @@ router.delete(
   validateParams(resumeIdParamSchema),
   resumesController.delete
 );
+
 export const resumesRoutes = router;
