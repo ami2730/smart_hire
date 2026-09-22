@@ -1,0 +1,575 @@
+import fs from 'fs';
+import { ApplicationStatus, ResumeProcessingStatus } from '@prisma/client';
+import { prisma } from '../config/database';
+import { mlClient } from '../integrations/ml/ml.client';
+import { applicationService } from './application.service';
+import { auditService } from './audit.service';
+import {
+  NotFoundError,
+  AuthorizationError,
+  ValidationError,
+} from '../utils/errors';
+import { logger } from '../config/logger';
+import { resumeParserService } from './resume-parser.service';
+
+export class ApplicantService {
+  /**
+   * Helper to resolve candidate profile for the authenticated applicant user.
+   */
+  async getCandidateByUserId(userId: string) {
+    let candidate = await prisma.candidate.findUnique({
+      where: { userId },
+      include: {
+        skills: { include: { skill: true } },
+        education: true,
+        experience: true,
+        resumes: { orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }] },
+        applications: {
+          orderBy: { appliedAt: 'desc' },
+          include: {
+            job: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+              },
+            },
+            screeningResults: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (!candidate) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        const existing = await prisma.candidate.findFirst({
+          where: {
+            OR: [
+              { email: { equals: user.email, mode: 'insensitive' } },
+              { userId: user.id },
+            ],
+          },
+        });
+        if (existing) {
+          candidate = await prisma.candidate.update({
+            where: { id: existing.id },
+            data: { userId: user.id, name: user.name },
+            include: {
+              skills: { include: { skill: true } },
+              education: true,
+              experience: true,
+              resumes: { orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }] },
+              applications: {
+                orderBy: { appliedAt: 'desc' },
+                include: {
+                  job: { select: { id: true, title: true, status: true } },
+                  screeningResults: { orderBy: { createdAt: 'desc' }, take: 1 },
+                },
+              },
+            },
+          });
+        } else {
+          candidate = await prisma.candidate.create({
+            data: {
+              userId: user.id,
+              name: user.name,
+              email: user.email,
+            },
+            include: {
+              skills: { include: { skill: true } },
+              education: true,
+              experience: true,
+              resumes: { orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }] },
+              applications: {
+                orderBy: { appliedAt: 'desc' },
+                include: {
+                  job: { select: { id: true, title: true, status: true } },
+                  screeningResults: { orderBy: { createdAt: 'desc' }, take: 1 },
+                },
+              },
+            },
+          });
+        }
+      }
+    }
+
+    if (!candidate) {
+      throw new NotFoundError('Applicant profile not found');
+    }
+
+    return candidate;
+  }
+
+  /**
+   * Get full applicant profile.
+   */
+  async getProfile(userId: string) {
+    let candidate = await this.getCandidateByUserId(userId);
+
+    // If candidate has resumes with extracted text but 0 skills, auto-extract once to backfill
+    if (candidate.skills.length === 0 && candidate.resumes.length > 0) {
+      const defaultResume = candidate.resumes.find((r) => r.isDefault) || candidate.resumes[0];
+      if (defaultResume && defaultResume.extractedText) {
+        try {
+          const fileBuffer = fs.existsSync(defaultResume.filePath) ? fs.readFileSync(defaultResume.filePath) : null;
+          await resumeParserService.parseAndSyncProfile(
+            candidate.id,
+            defaultResume.extractedText,
+            fileBuffer,
+            defaultResume.originalFileName
+          );
+          // Refetch updated candidate profile with newly synced relations
+          candidate = await this.getCandidateByUserId(userId);
+        } catch (err) {
+          logger.warn({ err, candidateId: candidate.id }, 'On-demand profile auto-sync failed');
+        }
+      }
+    }
+
+    return candidate;
+  }
+
+  /**
+   * Update applicant personal profile.
+   */
+  async updateProfile(
+    userId: string,
+    data: {
+      name?: string;
+      phone?: string;
+      location?: string;
+      summary?: string;
+    }
+  ) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (data.name) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { name: data.name },
+        });
+      }
+
+      return tx.candidate.update({
+        where: { id: candidate.id },
+        data: {
+          name: data.name,
+          phone: data.phone,
+          location: data.location,
+          summary: data.summary,
+        },
+        include: {
+          skills: { include: { skill: true } },
+          education: true,
+          experience: true,
+          resumes: true,
+        },
+      });
+    });
+
+    await auditService.log({
+      action: 'APPLICANT_PROFILE_UPDATE',
+      resource: 'CANDIDATE',
+      resourceId: candidate.id,
+      userId,
+    });
+
+    return updated;
+  }
+
+  /**
+   * List applicant's uploaded resumes.
+   */
+  async getResumes(userId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+    return prisma.resume.findMany({
+      where: { candidateId: candidate.id },
+      orderBy: [{ isDefault: 'desc' }, { uploadedAt: 'desc' }],
+    });
+  }
+
+  /**
+   * Upload a new resume for the applicant.
+   */
+  async uploadResume(
+    userId: string,
+    file: {
+      originalname: string;
+      filename: string;
+      path: string;
+      mimetype: string;
+      size: number;
+      buffer?: Buffer;
+    },
+    isDefault = false
+  ) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    const resumeCount = await prisma.resume.count({
+      where: { candidateId: candidate.id },
+    });
+
+    // Make default if requested or if this is the user's first resume
+    const shouldBeDefault = isDefault || resumeCount === 0;
+
+    if (shouldBeDefault) {
+      await prisma.resume.updateMany({
+        where: { candidateId: candidate.id },
+        data: { isDefault: false },
+      });
+    }
+
+    let extractedText: string | null = null;
+    let processingStatus: ResumeProcessingStatus = ResumeProcessingStatus.UPLOADED;
+
+    try {
+      const fileBuffer = file.buffer || (fs.existsSync(file.path) ? fs.readFileSync(file.path) : null);
+      if (fileBuffer) {
+        const extraction = await mlClient.extractResume(
+          fileBuffer,
+          file.originalname,
+          file.mimetype
+        );
+        if (extraction && extraction.text) {
+          extractedText = extraction.text;
+          processingStatus = ResumeProcessingStatus.PROCESSED;
+        }
+      }
+    } catch (extractErr) {
+      logger.warn(
+        { err: extractErr, fileName: file.originalname },
+        'ML text extraction deferred or failed during applicant resume upload'
+      );
+    }
+
+    const resume = await prisma.resume.create({
+      data: {
+        candidateId: candidate.id,
+        originalFileName: file.originalname,
+        storedFileName: file.filename,
+        filePath: file.path,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        extractedText,
+        processingStatus,
+        isDefault: shouldBeDefault,
+        processedAt: extractedText ? new Date() : null,
+      },
+    });
+
+    if (extractedText) {
+      try {
+        const fileBuffer = file.buffer || (fs.existsSync(file.path) ? fs.readFileSync(file.path) : null);
+        await resumeParserService.parseAndSyncProfile(
+          candidate.id,
+          extractedText,
+          fileBuffer,
+          file.originalname
+        );
+      } catch (parseErr) {
+        logger.warn({ err: parseErr, candidateId: candidate.id }, 'Auto-extraction of profile data from resume failed');
+      }
+    }
+
+    await auditService.log({
+      action: 'RESUME_UPLOAD',
+      resource: 'RESUME',
+      resourceId: resume.id,
+      userId,
+      details: { fileName: file.originalname, isDefault: shouldBeDefault },
+    });
+
+    return resume;
+  }
+
+  /**
+   * Explicitly parse/sync candidate profile from a resume.
+   */
+  async syncResumeToProfile(userId: string, resumeId?: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+    const targetResume = resumeId
+      ? candidate.resumes.find((r) => r.id === resumeId)
+      : candidate.resumes.find((r) => r.isDefault) || candidate.resumes[0];
+
+    if (!targetResume) {
+      throw new NotFoundError('No resume found to extract profile data from');
+    }
+
+    let text = targetResume.extractedText;
+    let fileBuffer: Buffer | null = null;
+    if (fs.existsSync(targetResume.filePath)) {
+      fileBuffer = fs.readFileSync(targetResume.filePath);
+    }
+
+    if (!text && fileBuffer) {
+      const extraction = await mlClient.extractResume(
+        fileBuffer,
+        targetResume.originalFileName,
+        targetResume.mimeType
+      );
+      if (extraction?.text) {
+        text = extraction.text;
+        await prisma.resume.update({
+          where: { id: targetResume.id },
+          data: { extractedText: text, processingStatus: ResumeProcessingStatus.PROCESSED },
+        });
+      }
+    }
+
+    if (!text) {
+      throw new ValidationError('Could not extract text from the selected resume file');
+    }
+
+    const extracted = await resumeParserService.parseAndSyncProfile(
+      candidate.id,
+      text,
+      fileBuffer,
+      targetResume.originalFileName
+    );
+
+    const updated = await this.getCandidateByUserId(userId);
+    return { profile: updated, extracted };
+  }
+
+  /**
+   * Delete an applicant's resume.
+   */
+  async deleteResume(userId: string, resumeId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+    const resume = await prisma.resume.findUnique({
+      where: { id: resumeId },
+    });
+
+    if (!resume) {
+      throw new NotFoundError('Resume not found');
+    }
+
+    if (resume.candidateId !== candidate.id) {
+      throw new AuthorizationError('Forbidden: you do not own this resume');
+    }
+
+    await prisma.resume.delete({
+      where: { id: resumeId },
+    });
+
+    if (fs.existsSync(resume.filePath)) {
+      try {
+        fs.unlinkSync(resume.filePath);
+      } catch (err) {
+        logger.warn({ path: resume.filePath, err }, 'Failed to delete resume file from disk');
+      }
+    }
+
+    await auditService.log({
+      action: 'RESUME_DELETE',
+      resource: 'RESUME',
+      resourceId: resumeId,
+      userId,
+    });
+  }
+
+  /**
+   * Submit an application for a published job.
+   */
+  async applyForJob(
+    userId: string,
+    data: {
+      jobId: string;
+      resumeId?: string;
+      coverLetter?: string;
+    }
+  ) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    let effectiveResumeId = data.resumeId;
+    if (effectiveResumeId) {
+      const candidateResumes = candidate.resumes || [];
+      const ownsResume = candidateResumes.some((r: any) => r.id === effectiveResumeId);
+
+      if (!ownsResume) {
+        // Check if the resume belongs to a matching candidate (e.g. legacy/orphaned candidate with same email or user)
+        const resume = await prisma.resume.findUnique({
+          where: { id: effectiveResumeId },
+          include: { candidate: true },
+        });
+
+        if (resume && resume.candidate) {
+          const isSameUser =
+            (resume.candidate.userId && resume.candidate.userId === userId) ||
+            (resume.candidate.email && candidate.email && resume.candidate.email.toLowerCase() === candidate.email.toLowerCase());
+
+          if (isSameUser) {
+            // Re-assign resume to current candidate profile
+            await prisma.resume.update({
+              where: { id: resume.id },
+              data: { candidateId: candidate.id },
+            });
+            effectiveResumeId = resume.id;
+          } else {
+            logger.warn(
+              { userId, candidateId: candidate.id, requestedResumeId: data.resumeId, resumeCandidateId: resume.candidateId },
+              'Requested resume belongs to a different candidate; falling back to candidate default resume'
+            );
+            const defaultResume = candidateResumes.find((r: any) => r.isDefault) || candidateResumes[0];
+            effectiveResumeId = defaultResume ? defaultResume.id : undefined;
+          }
+        } else {
+          const defaultResume = candidateResumes.find((r: any) => r.isDefault) || candidateResumes[0];
+          effectiveResumeId = defaultResume ? defaultResume.id : undefined;
+        }
+      }
+    } else {
+      const defaultResume = (candidate.resumes || []).find((r: any) => r.isDefault) || candidate.resumes?.[0];
+      effectiveResumeId = defaultResume ? defaultResume.id : undefined;
+    }
+
+    return applicationService.createApplication({
+      candidateId: candidate.id,
+      jobId: data.jobId,
+      resumeId: effectiveResumeId,
+      coverLetter: data.coverLetter,
+      source: 'REGISTERED',
+    });
+  }
+
+  /**
+   * List applicant's submitted applications.
+   */
+  async getApplications(userId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    return prisma.application.findMany({
+      where: { candidateId: candidate.id },
+      include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            location: true,
+            employmentType: true,
+            status: true,
+            publishedAt: true,
+            recruiter: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        resume: {
+          select: {
+            id: true,
+            originalFileName: true,
+            uploadedAt: true,
+          },
+        },
+        screeningResults: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { appliedAt: 'desc' },
+    });
+  }
+
+  /**
+   * Get single application details for the authenticated applicant.
+   */
+  async getApplicationById(userId: string, applicationId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        job: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            responsibilities: true,
+            location: true,
+            employmentType: true,
+            experienceRequirement: true,
+            educationRequirement: true,
+            status: true,
+            publishedAt: true,
+            requirements: true,
+          },
+        },
+        resume: {
+          select: {
+            id: true,
+            originalFileName: true,
+            uploadedAt: true,
+          },
+        },
+        screeningResults: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!application) {
+      throw new NotFoundError('Application not found');
+    }
+
+    if (application.candidateId !== candidate.id) {
+      throw new AuthorizationError('Forbidden: you do not have permission to view this application');
+    }
+
+    return application;
+  }
+
+  /**
+   * Withdraw an application.
+   */
+  async withdrawApplication(userId: string, applicationId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
+
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundError('Application not found');
+    }
+
+    if (application.candidateId !== candidate.id) {
+      throw new AuthorizationError('Forbidden: you do not have permission to withdraw this application');
+    }
+
+    if (
+      application.status === ApplicationStatus.HIRED ||
+      application.status === ApplicationStatus.REJECTED ||
+      application.status === ApplicationStatus.WITHDRAWN
+    ) {
+      throw new ValidationError(
+        `Cannot withdraw an application that is already in '${application.status}' status`
+      );
+    }
+
+    const updated = await prisma.application.update({
+      where: { id: applicationId },
+      data: { status: ApplicationStatus.WITHDRAWN },
+    });
+
+    await auditService.log({
+      action: 'APPLICATION_WITHDRAW',
+      resource: 'APPLICATION',
+      resourceId: applicationId,
+      userId,
+    });
+
+    return updated;
+  }
+}
+
+export const applicantService = new ApplicantService();
