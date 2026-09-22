@@ -57,6 +57,20 @@ class NotificationService {
           },
         },
       });
+       if (candidate) {
+        // 1. Application submissions & statuses
+        for (const app of candidate.applications) {
+          const notifId = `app-sub-${app.id}`;
+          notifications.push({
+            id: notifId,
+            title: 'Application Submitted',
+            message: `Your application for ${app.job.title} is currently ${app.status.replace(/_/g, ' ')}.`,
+            type: 'INFO',
+            category: 'APPLICATION',
+            timestamp: app.appliedAt.toISOString(),
+            read: readSet.has(notifId),
+            link: '/applications',
+          });
 
     }
 
