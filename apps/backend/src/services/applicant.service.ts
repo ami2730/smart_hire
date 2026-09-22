@@ -474,7 +474,48 @@ if (!text) {
 
     return application;
   }
+/**
+   * Withdraw an application.
+   */
+  async withdrawApplication(userId: string, applicationId: string) {
+    const candidate = await this.getCandidateByUserId(userId);
 
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new NotFoundError('Application not found');
+    }
+
+    if (application.candidateId !== candidate.id) {
+      throw new AuthorizationError('Forbidden: you do not have permission to withdraw this application');
+    }
+
+    if (
+      application.status === ApplicationStatus.HIRED ||
+      application.status === ApplicationStatus.REJECTED ||
+      application.status === ApplicationStatus.WITHDRAWN
+    ) {
+      throw new ValidationError(
+        `Cannot withdraw an application that is already in '${application.status}' status`
+      );
+    }
+
+    const updated = await prisma.application.update({
+      where: { id: applicationId },
+      data: { status: ApplicationStatus.WITHDRAWN },
+    });
+
+    await auditService.log({
+      action: 'APPLICATION_WITHDRAW',
+      resource: 'APPLICATION',
+      resourceId: applicationId,
+      userId,
+    });
+
+    return updated;
+  }
 }
 
 export const applicantService = new ApplicantService();
