@@ -37,7 +37,7 @@ class ResumesController {
       );
       sendSuccess(res, { resumes }, 200, pagination);
     } catch (error) {
-      
+      next(error);
     }
   };
 export const resumesController = new ResumesController();
