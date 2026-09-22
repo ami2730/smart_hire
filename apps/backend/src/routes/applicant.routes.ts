@@ -12,6 +12,12 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireRole(Role.APPLICANT, Role.ADMIN));
 
+const updateProfileSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  phone: z.string().trim().max(30).optional(),
+  location: z.string().trim().max(100).optional(),
+  summary: z.string().trim().max(2000).optional(),
+});
 
 
 export const applicantRoutes = router;
