@@ -562,5 +562,40 @@ onst nextLine = expLines[i + 1] ?? '';
           });
         }
       }
+// D. Insert Education if candidate currently has 0 education records
+      if (candidate.education.length === 0 && finalEducation.length > 0) {
+        for (const edu of finalEducation) {
+          await tx.education.create({
+            data: {
+              candidateId,
+              degree: edu.degree,
+              field: edu.field || null,
+              institution: edu.institution,
+            },
+          });
+        }
+      }
+    });
+
+    logger.info(
+      {
+        candidateId,
+        skillsCount: combinedSkills.size,
+        experienceCount: finalExperience.length,
+        educationCount: finalEducation.length,
+      },
+      'Candidate profile auto-extracted and synced from resume'
+    );
+
+    return {
+      skills: Array.from(combinedSkills),
+      experience: finalExperience,
+      education: finalEducation,
+      location: finalLocation || undefined,
+      phone: finalPhone || undefined,
+      summary: finalSummary || undefined,
+    };
+  }
+}
 
 export const resumeParserService = new ResumeParserService();
