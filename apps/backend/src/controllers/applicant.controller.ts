@@ -63,6 +63,14 @@ export class ApplicantController {
       next(error);
     }
   }
+  async apply(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const application = await applicantService.applyForJob(req.user!.id, req.body);
+      res.status(201).json({ success: true, data: { application } });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const applicantController = new ApplicantController();
