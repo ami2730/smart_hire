@@ -102,6 +102,19 @@ class NotificationService {
           });
         }
       }
+     } else if (user.role === Role.RECRUITER) {
+      // 1. Recent applications
+      const recentApps = await prisma.application.findMany({
+        where: {
+          job: { recruiterId: user.id },
+        },
+        include: {
+          candidate: { select: { id: true, name: true } },
+          job: { select: { id: true, title: true } },
+        },
+        orderBy: { appliedAt: 'desc' },
+        take: 15,
+      });
 
     }
 
