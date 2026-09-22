@@ -548,5 +548,19 @@ onst nextLine = expLines[i + 1] ?? '';
           update: {},
         });
       }
+ // C. Insert Experience if candidate currently has 0 experience records
+      if (candidate.experience.length === 0 && finalExperience.length > 0) {
+        for (const exp of finalExperience) {
+          await tx.experience.create({
+            data: {
+              candidateId,
+              company: exp.company,
+              jobTitle: exp.jobTitle,
+              description: exp.description || null,
+              years: exp.years || 1.0,
+            },
+          });
+        }
+      }
 
 export const resumeParserService = new ResumeParserService();
