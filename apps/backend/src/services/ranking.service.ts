@@ -13,7 +13,15 @@ import { RankingQueryInput, BatchRankBodyInput } from '../schemas/ranking.schema
 import { AuthUser } from './application.service';
 
 export class RankingService {
-  
+   /**
+   * Get ranked candidates for a specific job with filtering, sorting, and pagination.
+   */
+  async getJobRankings(jobId: string, query: RankingQueryInput, user: AuthUser) {
+    const job = await jobRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundError('Job not found');
+    }
+
 }
 
 export const rankingService = new RankingService();
