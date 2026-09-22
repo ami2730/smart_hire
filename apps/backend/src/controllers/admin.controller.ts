@@ -51,3 +51,13 @@ export class AdminController {
       next(error);
     }
   };
+
+  getReports = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const overview = await adminService.getSystemOverview();
+      const jobStats = await reportService.getJobReport({}, req.user!);
+      sendSuccess(res, { overview, jobStats }, 200);
+    } catch (error) {
+      next(error);
+    }
+  };
