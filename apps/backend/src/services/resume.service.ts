@@ -46,6 +46,11 @@ function formatResume(resume: {
       : {}),
     candidate: resume.candidate ?? null,
   };
+  // ── Service ───────────────────────────────────────────────────────────────────
+
+class ResumeService {
+  // ── Upload ─────────────────────────────────────────────────────────────────
+
 }
 
 
