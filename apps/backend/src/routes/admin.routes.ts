@@ -6,3 +6,7 @@ import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { validateBody, validateParams } from '../middleware/validate.middleware';
 
 const router = Router();
+
+// All admin routes strictly require Role.ADMIN
+router.use(requireAuth);
+router.use(requireRole(Role.ADMIN));
