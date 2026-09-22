@@ -25,7 +25,38 @@ class NotificationService {
     }
     return set;
   }
+ /**
+   * Fetch live, role-specific notifications for the authenticated user.
+   */
+  async getNotifications(user: AuthUser): Promise<{
+    notifications: AppNotification[];
+    unreadCount: number;
+  }> {
+    const readSet = this.getReadSet(user.id);
+    const notifications: AppNotification[] = [];
 
+    if (user.role === Role.APPLICANT) {
+      // Find applicant candidate profile
+      const candidate = await prisma.candidate.findUnique({
+        where: { userId: user.id },
+        include: {
+          applications: {
+            include: {
+              job: { select: { id: true, title: true, status: true } },
+              screeningResults: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            },
+            orderBy: { appliedAt: 'desc' },
+            take: 10,
+          },
+          resumes: {
+            orderBy: { uploadedAt: 'desc' },
+            take: 5,
+          },
+        },
+      });
 
     }
 
