@@ -369,6 +369,27 @@ onst nextLine = expLines[i + 1] ?? '';
     if (currentEdu) {
       education.push(currentEdu);
     }
+// 5. Extract Location & Phone
+    let location: string | undefined;
+    let phone: string | undefined;
 
+    const phoneMatch = rawText.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
+    if (phoneMatch && phoneMatch[0].length >= 9) {
+      phone = phoneMatch[0].trim();
+    }
+
+    const locationMatch = rawText.match(
+      /\b([A-Z][a-zA-Z\s]+,\s*(?:Ethiopia|United States|USA|UK|Germany|Kenya|Canada|Remote|Addis Ababa))\b/i
+    );
+    if (locationMatch) {
+      location = locationMatch[0].trim();
+    } else {
+      for (const line of lines.slice(0, 15)) {
+        if (/\b(Addis Ababa|Ethiopia|Adama|Hawassa|Nairobi|New York|San Francisco|Remote)\b/i.test(line)) {
+          location = line.replace(/Email.*|Phone.*/i, '').trim();
+          break;
+        }
+      }
+    }
 
 export const resumeParserService = new ResumeParserService();
