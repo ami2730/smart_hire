@@ -103,5 +103,53 @@ export class AdminService {
   /**
    * List all applicants across the platform.
    */
-  
+  async listApplicants(query: { page?: number; limit?: number; search?: string }) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CandidateWhereInput = {
+      ...(query.search && {
+        OR: [
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [applicants, total] = await Promise.all([
+      prisma.candidate.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              isActive: true,
+              role: true,
+            },
+          },
+          _count: {
+            select: {
+              applications: true,
+              resumes: true,
+            },
+          },
+        },
+      }),
+      prisma.candidate.count({ where }),
+    ]);
+
+    return {
+      applicants,
+      pagination: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  /**
+   * List all recruiters across the platform.
+   */
+ 
 export const adminService = new AdminService();
