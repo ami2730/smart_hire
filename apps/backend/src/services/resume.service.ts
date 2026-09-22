@@ -163,6 +163,13 @@ async uploadResume(
       extractedText
     );
   }
+  async markFailed(id: string) {
+    const resume = await resumeRepository.findById(id);
+    if (!resume) throw new NotFoundError('Resume not found');
+
+    return resumeRepository.updateStatus(id, ResumeProcessingStatus.FAILED);
+  }
+
 }
 
 
