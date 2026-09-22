@@ -474,5 +474,16 @@ onst nextLine = expLines[i + 1] ?? '';
         if (s && typeof s === 'string') combinedSkills.add(s.trim());
       }
     }
-
+// Merge experience
+    const finalExperience = [...localData.experience];
+    if (finalExperience.length === 0 && mlData?.experience && Array.isArray(mlData.experience)) {
+      for (const expStr of mlData.experience) {
+        finalExperience.push({
+          jobTitle: mlData.job_titles?.[0] || 'Software Professional',
+          company: 'Industry Experience',
+          description: String(expStr),
+          years: 1.0,
+        });
+      }
+    }
 export const resumeParserService = new ResumeParserService();
