@@ -36,5 +36,7 @@ router.post('/profile/sync-resume', applicantController.syncResume);
 // Resumes endpoints
 router.get('/resumes', applicantController.getResumes);
 router.post('/resumes', resumeUpload.single('resume'),
+router.delete('/resumes/:id', validateParams(idParamSchema), applicantController.deleteResume);
+
 
 export const applicantRoutes = router;
