@@ -134,7 +134,15 @@ export class ApplicantService {
         },
       });
     });
+await auditService.log({
+      action: 'APPLICANT_PROFILE_UPDATE',
+      resource: 'CANDIDATE',
+      resourceId: candidate.id,
+      userId,
+    });
 
+    return updated;
+  }
 
 }
 
