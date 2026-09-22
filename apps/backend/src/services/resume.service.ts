@@ -50,7 +50,17 @@ function formatResume(resume: {
 
 class ResumeService {
   // ── Upload ─────────────────────────────────────────────────────────────────
-
+async uploadResume(
+    candidateId: string,
+    file: Express.Multer.File
+  ) {
+    // Guard: candidate must exist
+    const candidate = await candidateRepository.findById(candidateId);
+    if (!candidate) {
+      // Remove orphaned file if candidate doesn't exist
+      this.safeDeleteFile(file.path);
+      throw new NotFoundError('Candidate not found');
+    }
 }
 
 
