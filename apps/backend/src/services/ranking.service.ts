@@ -155,6 +155,41 @@ export class RankingService {
       },
       candidates: candidateInputs,
     });
+// Persist screening results for each candidate in the batch
+    for (const ranked of mlRankResult.candidates) {
+      const applicationId = appMap.get(ranked.candidate_id);
+      if (!applicationId) continue;
+
+      const components = (ranked.explanation as { components?: Record<string, number> })?.components;
+      const matchingSkills =
+        (ranked.explanation as { matching_skills?: string[] })?.matching_skills || [];
+      const missingSkills =
+        (ranked.explanation as { missing_skills?: string[] })?.missing_skills || [];
+
+      const recommendation =
+        recommendationMap[ranked.recommendation] || ScreeningRecommendation.MODERATE_MATCH;
+
+      await screeningRepository.create({
+        applicationId,
+        overallScore: Number(ranked.score.toFixed(2)),
+        skillMatchScore: Number((components?.skill_match ?? 0).toFixed(2)),
+        experienceMatchScore: Number((components?.experience_match ?? 0).toFixed(2)),
+        educationMatchScore: Number((components?.education_match ?? 0).toFixed(2)),
+        semanticSimilarityScore: Number((components?.semantic_similarity ?? 0).toFixed(2)),
+        matchingSkills,
+        missingSkills,
+        recommendation,
+        explanation: JSON.stringify(ranked.explanation || {}),
+        modelVersion: '1.0.0',
+      });
+
+      await applicationRepository.updateStatus(applicationId, ApplicationStatus.SCREENED);
+    }
+
+    logger.info(
+      { jobId, rankedCount: mlRankResult.candidates.length },
+      'Batch candidate ranking completed and persisted'
+    );
 
 }
 
