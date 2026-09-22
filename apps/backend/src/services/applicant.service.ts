@@ -316,6 +316,13 @@ if (!text) {
         logger.warn({ path: resume.filePath, err }, 'Failed to delete resume file from disk');
       }
     }
+    await auditService.log({
+      action: 'RESUME_DELETE',
+      resource: 'RESUME',
+      resourceId: resumeId,
+      userId,
+    });
+  }
 }
 
 export const applicantService = new ApplicantService();
