@@ -21,7 +21,8 @@ export class ApplicantController {
   }
   async getResumes(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      
+     const resumes = await applicantService.getResumes(req.user!.id);
+      res.status(200).json({ success: true, data: { resumes } }); 
     } catch (error) {
       next(error);
     }
