@@ -10,7 +10,8 @@ class ResumesController {
     req: Request,
     res: Response,
     next: NextFunction
-  ): Promise<void> =>try {
+  ): Promise<void> => {
+    try {
       if (!req.file) {
         throw new FileUploadError('No file provided. Please attach a PDF or DOCX file.');
       }
@@ -24,12 +25,13 @@ class ResumesController {
       next(error);
     }
   };
+
   // GET /api/v1/candidates/:candidateId/resumes
   list = async (
     req: Request,
     res: Response,
     next: NextFunction
-  ): Promise<void> =>{
+  ): Promise<void> => {
     try {
       const { resumes, pagination } = await resumeService.listResumes(
         req.params['candidateId']!,
@@ -40,7 +42,8 @@ class ResumesController {
       next(error);
     }
   };
-   // GET /api/v1/resumes/:id
+
+  // GET /api/v1/resumes/:id
   getById = async (
     req: Request,
     res: Response,
@@ -53,7 +56,8 @@ class ResumesController {
       next(error);
     }
   };
- // GET /api/v1/resumes/:id/download
+
+  // GET /api/v1/resumes/:id/download
   download = async (
     req: Request,
     res: Response,
@@ -75,6 +79,7 @@ class ResumesController {
       next(error);
     }
   };
+
   // DELETE /api/v1/resumes/:id
   delete = async (
     req: Request,
@@ -85,9 +90,9 @@ class ResumesController {
       await resumeService.deleteResume(req.params['id']!);
       sendSuccess(res, { message: 'Resume deleted successfully' });
     } catch (error) {
-     next(error); 
+      next(error);
     }
   };
 }
+
 export const resumesController = new ResumesController();
-  
