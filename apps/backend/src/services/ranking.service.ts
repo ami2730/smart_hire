@@ -1,0 +1,231 @@
+import fs from 'fs';
+import { Role, ApplicationStatus, ScreeningRecommendation } from '@prisma/client';
+import { rankingRepository } from '../repositories/ranking.repository';
+import { jobRepository } from '../repositories/job.repository';
+import { applicationRepository } from '../repositories/application.repository';
+import { screeningRepository } from '../repositories/screening.repository';
+import { resumeRepository } from '../repositories/resume.repository';
+import { mlService } from './ml.service';
+import { logger } from '../config/logger';
+import { NotFoundError, AuthorizationError } from '../utils/errors';
+import { buildPaginationMeta } from '../utils/pagination';
+import { RankingQueryInput, BatchRankBodyInput } from '../schemas/ranking.schema';
+import { AuthUser } from './application.service';
+
+export class RankingService {
+  /**
+   * Get ranked candidates for a specific job with filtering, sorting, and pagination.
+   */
+  async getJobRankings(jobId: string, query: RankingQueryInput, user: AuthUser) {
+    const job = await jobRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundError('Job not found');
+    }
+
+    // Recruiter authorization check
+    if (user.role === Role.RECRUITER && job.recruiterId !== user.id) {
+      throw new AuthorizationError('You can only view candidate rankings for jobs you own');
+    }
+
+    const { candidates, total } = await rankingRepository.getRankingsForJob(jobId, query);
+    const pagination = buildPaginationMeta(total, query.page, query.limit);
+
+    return {
+      job: {
+        id: job.id,
+        title: job.title,
+        status: job.status,
+      },
+      rankings: candidates,
+      pagination,
+    };
+  }
+
+  /**
+   * Trigger batch AI screening and deterministic ranking for all (or specified) applications of a job.
+   * Calls the Python ML service batch ranking endpoint, persists multi-criteria scores,
+   * updates application statuses, and returns the updated leaderboard.
+   */
+  async triggerBatchRanking(jobId: string, options: BatchRankBodyInput, user: AuthUser) {
+    const job = await jobRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundError('Job not found');
+    }
+
+    // Recruiter authorization check
+    if (user.role === Role.RECRUITER && job.recruiterId !== user.id) {
+      throw new AuthorizationError('You can only trigger ranking for jobs you own');
+    }
+
+    const { force, candidateIds } = options;
+
+    // Fetch applications for this job
+    const { applications } = await applicationRepository.findMany({
+      page: 1,
+      limit: 100, // Process batch of applications
+      jobId,
+      sortBy: 'appliedAt',
+      sortOrder: 'desc',
+    });
+
+    // Filter applications eligible for ranking
+    let eligibleApps = applications;
+    if (candidateIds && candidateIds.length > 0) {
+      eligibleApps = eligibleApps.filter((a) => candidateIds.includes(a.candidate.id));
+    }
+    if (!force) {
+      // Only process applications not already screened
+      eligibleApps = eligibleApps.filter((a) => a.status !== ApplicationStatus.SCREENED);
+    }
+
+    if (eligibleApps.length === 0) {
+      // No new applications to evaluate; return existing rankings
+      const existing = await this.getJobRankings(
+        jobId,
+        {
+          page: 1,
+          limit: 10,
+          sortBy: 'matchScore',
+          sortOrder: 'desc',
+        },
+        user
+      );
+
+      return {
+        ...existing,
+        message: 'No pending applications found to evaluate. All candidates already screened.',
+      };
+    }
+
+    // Prepare job specifications for ML service
+    const jobReqs = job.requirements;
+    const requiredSkills = jobReqs?.requiredSkills || [];
+    const minYears = job.minimumExperienceYears || jobReqs?.minimumExperienceYears || 0;
+    const educationReqs = jobReqs?.educationRequirements ? [jobReqs.educationRequirements] : [];
+
+    // Prepare candidate inputs
+    const candidateInputs = [];
+    const appMap = new Map<string, string>(); // candidateId -> applicationId
+
+    for (const app of eligibleApps) {
+      const fullApp = await applicationRepository.findById(app.id);
+      if (!fullApp) continue;
+
+      appMap.set(fullApp.candidateId, fullApp.id);
+
+      // Resolve resume text
+      let resumeText = fullApp.resume?.extractedText || '';
+      if (!resumeText && fullApp.resume?.filePath && fs.existsSync(fullApp.resume.filePath)) {
+        try {
+          const fileBuffer = fs.readFileSync(fullApp.resume.filePath);
+          const extraction = await mlService.extractResume(
+            fileBuffer,
+            fullApp.resume.originalFileName,
+            fullApp.resume.mimeType
+          );
+          if (extraction.text) {
+            resumeText = extraction.text;
+            await resumeRepository.updateExtractedText(fullApp.resume.id, resumeText);
+          }
+        } catch (err) {
+          logger.warn({ resumeId: fullApp.resume.id, err }, 'Failed to extract resume text');
+        }
+      }
+
+      const skills = fullApp.candidate.skills.map((s) => s.skill.name);
+      const experience = fullApp.candidate.experience.map(
+        (e) =>
+          `${e.jobTitle} at ${e.company}${e.years ? ` (${e.years} years)` : ''}${
+            e.description ? `: ${e.description}` : ''
+          }`
+      );
+      const education = fullApp.candidate.education.map(
+        (ed) => `${ed.degree}${ed.field ? ` in ${ed.field}` : ''} from ${ed.institution}`
+      );
+
+      candidateInputs.push({
+        id: fullApp.candidateId,
+        resume_text: resumeText,
+        skills,
+        experience,
+        education,
+      });
+    }
+
+    logger.info(
+      { jobId, candidateCount: candidateInputs.length },
+      'Triggering batch candidate ranking via ML service'
+    );
+
+    // Call ML service rankCandidates()
+    const mlRankResult = await mlService.rankCandidates({
+      job_id: jobId,
+      job: {
+        title: job.title,
+        description: job.description,
+        required_skills: requiredSkills,
+        minimum_experience_years: minYears,
+        education_requirements: educationReqs,
+      },
+      candidates: candidateInputs,
+    });
+
+    // Map recommendation strings to Prisma enum
+    const recommendationMap: Record<string, ScreeningRecommendation> = {
+      strong_match: ScreeningRecommendation.STRONG_MATCH,
+      good_match: ScreeningRecommendation.GOOD_MATCH,
+      moderate_match: ScreeningRecommendation.MODERATE_MATCH,
+      low_match: ScreeningRecommendation.LOW_MATCH,
+    };
+
+    // Persist screening results for each candidate in the batch
+    for (const ranked of mlRankResult.candidates) {
+      const applicationId = appMap.get(ranked.candidate_id);
+      if (!applicationId) continue;
+
+      const components = (ranked.explanation as { components?: Record<string, number> })?.components;
+      const matchingSkills =
+        (ranked.explanation as { matching_skills?: string[] })?.matching_skills || [];
+      const missingSkills =
+        (ranked.explanation as { missing_skills?: string[] })?.missing_skills || [];
+
+      const recommendation =
+        recommendationMap[ranked.recommendation] || ScreeningRecommendation.MODERATE_MATCH;
+
+      await screeningRepository.create({
+        applicationId,
+        overallScore: Number(ranked.score.toFixed(2)),
+        skillMatchScore: Number((components?.skill_match ?? 0).toFixed(2)),
+        experienceMatchScore: Number((components?.experience_match ?? 0).toFixed(2)),
+        educationMatchScore: Number((components?.education_match ?? 0).toFixed(2)),
+        semanticSimilarityScore: Number((components?.semantic_similarity ?? 0).toFixed(2)),
+        matchingSkills,
+        missingSkills,
+        recommendation,
+        explanation: JSON.stringify(ranked.explanation || {}),
+        modelVersion: '1.0.0',
+      });
+
+      await applicationRepository.updateStatus(applicationId, ApplicationStatus.SCREENED);
+    }
+
+    logger.info(
+      { jobId, rankedCount: mlRankResult.candidates.length },
+      'Batch candidate ranking completed and persisted'
+    );
+
+    // Fetch and return the fresh rankings
+    return this.getJobRankings(
+      jobId,
+      {
+        page: 1,
+        limit: 10,
+        sortBy: 'matchScore',
+        sortOrder: 'desc',
+      },
+      user
+    );
+  }
+}
+
+export const rankingService = new RankingService();
