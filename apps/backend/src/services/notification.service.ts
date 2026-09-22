@@ -168,7 +168,37 @@ class NotificationService {
           link: `/applications/${scr.applicationId}/screening`,
         });
       }
+       // 3. Recent candidate uploads
+      const recentResumes = await prisma.resume.findMany({
+        include: {
+          candidate: { select: { id: true, name: true } },
+        },
+        orderBy: { uploadedAt: 'desc' },
+        take: 5,
+      });
 
+      for (const res of recentResumes) {
+        const notifId = `rec-res-${res.id}`;
+        notifications.push({
+          id: notifId,
+          title: 'Resume Parsed',
+          message: `Updated resume uploaded for candidate ${res.candidate.name} (${res.originalFileName}).`,
+          type: 'INFO',
+          category: 'RESUME',
+          timestamp: res.uploadedAt.toISOString(),
+          read: readSet.has(notifId),
+          link: `/candidates/${res.candidateId}`,
+        });
+      }
+    } else if (user.role === Role.ADMIN) {
+      // 1. Audit logs
+      const auditLogs = await prisma.auditLog.findMany({
+        include: {
+          user: { select: { name: true, email: true } },
+        },
+        orderBy: { timestamp: 'desc' },
+        take: 15,
+      });
 
     }
 
