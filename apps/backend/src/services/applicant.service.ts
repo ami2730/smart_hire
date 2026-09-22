@@ -42,6 +42,17 @@ export class ApplicantService {
         },
       },
     });
+     if (!candidate) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user) {
+        const existing = await prisma.candidate.findFirst({
+          where: {
+            OR: [
+              { email: { equals: user.email, mode: 'insensitive' } },
+              { userId: user.id },
+            ],
+          },
+        });
 }
 
 export const applicantService = new ApplicantService();
