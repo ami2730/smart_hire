@@ -197,5 +197,10 @@ export class ResumeParserService {
     }
 // 2. Extract Skills
     const extractedSkillsSet = new Set<string>();
-
+ // Scan lines in the SKILLS section
+    for (const line of (sections.skills ?? [])) {
+      // Split on commas, bullets, pipes, or semicolons
+      const tokens = line.split(/[,|;•\t]/).map((t) => t.trim());
+      for (const token of tokens) {
+        if (!token) continue;
 export const resumeParserService = new ResumeParserService();
