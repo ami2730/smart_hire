@@ -46,5 +46,11 @@ router.get(
   validateParams(resumeIdParamSchema),
   resumesController.download
 );
-
+// DELETE /api/v1/resumes/:id — delete resume record + file
+router.delete(
+  '/resumes/:id',
+  requireAuth,
+  validateParams(resumeIdParamSchema),
+  resumesController.delete
+);
 export const resumesRoutes = router;
